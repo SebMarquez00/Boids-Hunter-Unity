@@ -1,10 +1,35 @@
+using System.Collections.Generic;
 using UnityEngine;
+
 
 public class BoidAgent : Agent
 {
     [Header("Stats")]
     [SerializeField] private float _maxSpeed = 4f;
     [SerializeField] private float _maxSteering = 8f;
+
+    [Header("Perception")]
+    [SerializeField] private float _viewRadius = 5f;
+    [SerializeField] private int _detectedNeighbors;
+
+    [Header("Flocking")]
+    [SerializeField] private float _separationRadius = 2f;
+
+    [SerializeField, Range(0f, 3f)]
+    private float _separationWeight = 1f;
+
+    private static List<BoidAgent> _allAgents =
+        new List<BoidAgent>();
+
+    private void OnEnable()
+    {
+        _allAgents.Add(this);
+    }
+
+    private void OnDisable()
+    {
+        _allAgents.Remove(this);
+    }
 
     private void Start()
     {
@@ -24,6 +49,9 @@ public class BoidAgent : Agent
 
     private void Update()
     {
+        DetectNeighbors();
+        _velocity += CalculateSeparation() * _separationWeight;
+
         _velocity = Vector3.ClampMagnitude(
             _velocity,
             _maxSpeed
@@ -47,6 +75,77 @@ public class BoidAgent : Agent
         return Vector3.ClampMagnitude(
             steering,
             _maxSteering * Time.deltaTime
+        );
+    }
+    private bool InRange(Vector3 position, float radius)
+    {
+        Vector3 direction = position - transform.position;
+
+        return direction.sqrMagnitude <= radius * radius;
+    }
+    private void DetectNeighbors()
+    {
+        _detectedNeighbors = 0;
+
+        foreach (BoidAgent agent in _allAgents)
+        {
+            if (agent == this)
+            {
+                continue;
+            }
+
+            if (InRange(agent.transform.position, _viewRadius))
+            {
+                _detectedNeighbors++;
+            }
+        }
+    }
+    private Vector3 CalculateSeparation()
+    {
+        Vector3 desired = Vector3.zero;
+        int count = 0;
+
+        foreach (BoidAgent agent in _allAgents)
+        {
+            if (agent == this)
+            {
+                continue;
+            }
+
+            if (InRange(agent.transform.position, _separationRadius))
+            {
+                desired +=
+                    agent.transform.position - transform.position;
+
+                count++;
+            }
+        }
+
+        if (count == 0)
+        {
+            return Vector3.zero;
+        }
+
+        desired /= count;
+
+        return CalculateSteering(
+            -desired.normalized * _maxSpeed
+        );
+    }
+    private void OnDrawGizmosSelected()
+    {
+        Gizmos.color = Color.cyan;
+
+        Gizmos.DrawWireSphere(
+            transform.position,
+            _viewRadius
+        );
+
+        Gizmos.color = Color.red;
+
+        Gizmos.DrawWireSphere(
+            transform.position,
+            _separationRadius
         );
     }
 }
