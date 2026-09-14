@@ -17,6 +17,8 @@ public class BoidAgent : Agent
 
     [SerializeField, Range(0f, 3f)]
     private float _separationWeight = 1f;
+    [SerializeField, Range(0f, 3f)]
+    private float _alignmentWeight = 1f;
 
     private static List<BoidAgent> _allAgents =
         new List<BoidAgent>();
@@ -50,7 +52,7 @@ public class BoidAgent : Agent
     private void Update()
     {
         DetectNeighbors();
-        _velocity += CalculateSeparation() * _separationWeight;
+        _velocity += Flocking();
 
         _velocity = Vector3.ClampMagnitude(
             _velocity,
@@ -67,7 +69,6 @@ public class BoidAgent : Agent
         transform.position =
             WorldBounds.Instance.OutOfBounds(transform.position);
     }
-
     private Vector3 CalculateSteering(Vector3 desired)
     {
         Vector3 steering = desired - _velocity;
@@ -132,6 +133,41 @@ public class BoidAgent : Agent
             -desired.normalized * _maxSpeed
         );
     }
+    private Vector3 CalculateAlignment()
+    {
+        Vector3 desired = Vector3.zero;
+        int count = 0;
+
+        foreach (BoidAgent agent in _allAgents)
+        {
+            if (agent == this)
+            {
+                continue;
+            }
+
+            if (InRange(agent.transform.position, _viewRadius))
+            {
+                desired += agent.Velocity;
+                count++;
+            }
+        }
+
+        if (count == 0)
+        {
+            return Vector3.zero;
+        }
+
+        desired /= count;
+
+        return CalculateSteering(
+            desired.normalized * _maxSpeed
+        );
+    }
+    private Vector3 Flocking()
+    {
+        return CalculateSeparation() * _separationWeight
+             + CalculateAlignment() * _alignmentWeight;
+    }
     private void OnDrawGizmosSelected()
     {
         Gizmos.color = Color.cyan;
@@ -147,5 +183,15 @@ public class BoidAgent : Agent
             transform.position,
             _separationRadius
         );
+
+        if (Application.isPlaying)
+        {
+            Gizmos.color = Color.yellow;
+
+            Gizmos.DrawLine(
+                transform.position,
+                transform.position + _velocity
+            );
+        }
     }
 }
