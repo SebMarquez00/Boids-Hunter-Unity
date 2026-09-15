@@ -4,6 +4,12 @@ using UnityEngine;
 
 public class BoidAgent : Agent
 {
+    [Header("Health")]
+    [SerializeField] private float _maxHealth = 20f;
+    [SerializeField] private float _currentHealth;
+
+    public bool IsAlive => _currentHealth > 0f;
+
     [Header("Stats")]
     [SerializeField] private float _maxSpeed = 4f;
     [SerializeField] private float _maxSteering = 8f;
@@ -27,6 +33,15 @@ public class BoidAgent : Agent
 
     [SerializeField] private InterestObject _interestTarget;
 
+    [Header("Interaction")]
+    [SerializeField] private float _interactionRadius = 1.5f;
+    [SerializeField] private float _interactionDamage = 5f;
+    [SerializeField] private float _interactionInterval = 1f;
+
+    [SerializeField] private bool _isInteracting;
+
+    private float _interactionTimer;
+
     [SerializeField, Range(0f, 3f)]
     private float _separationWeight = 1f;
 
@@ -41,6 +56,13 @@ public class BoidAgent : Agent
 
     private void OnEnable()
     {
+        _currentHealth = _maxHealth;
+
+        _interactionTimer = 0f;
+        _isInteracting = false;
+        _threatDetected = false;
+        _interestTarget = null;
+
         _allAgents.Add(this);
     }
 
@@ -67,6 +89,11 @@ public class BoidAgent : Agent
 
     private void Update()
     {
+        if (!IsAlive)
+        {
+            return;
+        }
+
         DetectNeighbors();
         DetectInterestObject();
 
@@ -101,6 +128,8 @@ public class BoidAgent : Agent
 
         transform.position =
             WorldBounds.Instance.OutOfBounds(transform.position);
+
+        UpdateInteraction();
     }
     private Vector3 CalculateSteering(Vector3 desired)
     {
@@ -173,7 +202,7 @@ public class BoidAgent : Agent
 
         foreach (BoidAgent agent in _allAgents)
         {
-            if (agent == this)
+            if (agent == this || !agent.IsAlive)
             {
                 continue;
             }
@@ -191,7 +220,7 @@ public class BoidAgent : Agent
 
         foreach (BoidAgent agent in _allAgents)
         {
-            if (agent == this)
+            if (agent == this || !agent.IsAlive)
             {
                 continue;
             }
@@ -231,7 +260,7 @@ public class BoidAgent : Agent
 
         foreach (BoidAgent agent in _allAgents)
         {
-            if (agent == this)
+            if (agent == this || !agent.IsAlive)
             {
                 continue;
             }
@@ -261,7 +290,7 @@ public class BoidAgent : Agent
 
         foreach (BoidAgent agent in _allAgents)
         {
-            if (agent == this)
+            if (agent == this || !agent.IsAlive)
             {
                 continue;
             }
@@ -333,12 +362,13 @@ public class BoidAgent : Agent
     }
     private void DetectInterestObject()
     {
+        InterestObject previousTarget = _interestTarget;
         _interestTarget = null;
         float closestDistance = float.MaxValue;
 
         foreach (InterestObject interest in InterestObject.AllObjects)
         {
-            if (interest == null)
+            if (interest == null || !interest.IsAlive)
             {
                 continue;
             }
@@ -358,6 +388,84 @@ public class BoidAgent : Agent
                 _interestTarget = interest;
             }
         }
+        if (_interestTarget != previousTarget)
+        {
+            _interactionTimer = 0f;
+        }
+    }
+    private void UpdateInteraction()
+    {
+        _isInteracting = false;
+
+        if (_threatDetected)
+        {
+            _interactionTimer = 0f;
+            return;
+        }
+
+        if (_interestTarget == null || !_interestTarget.IsAlive)
+        {
+            _interactionTimer = 0f;
+            return;
+        }
+
+        if (!InRange(
+            _interestTarget.transform.position,
+            _interactionRadius
+        ))
+        {
+            _interactionTimer = 0f;
+            return;
+        }
+
+        _isInteracting = true;
+
+        _interactionTimer += Time.deltaTime;
+
+        if (_interactionTimer >= _interactionInterval)
+        {
+            _interestTarget.TakeDamage(_interactionDamage);
+
+            _interactionTimer = 0f;
+        }
+    }
+    public void TakeDamage(float damage)
+    {
+        if (!IsAlive || damage <= 0f)
+        {
+            return;
+        }
+
+        _currentHealth = Mathf.Max(
+            0f,
+            _currentHealth - damage
+        );
+
+        if (!IsAlive)
+        {
+            Die();
+        }
+    }
+    private void Die()
+    {
+        _velocity = Vector3.zero;
+
+        _interactionTimer = 0f;
+        _isInteracting = false;
+
+        _threatDetected = false;
+        _interestTarget = null;
+        _detectedNeighbors = 0;
+    }
+    [ContextMenu("Debug/Recibir 5 de dano")]
+    private void DebugTakeDamage()
+    {
+        if (!Application.isPlaying)
+        {
+            return;
+        }
+
+        TakeDamage(5f);
     }
     private void OnDrawGizmosSelected()
     {
