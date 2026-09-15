@@ -15,10 +15,24 @@ public class BoidAgent : Agent
     [Header("Flocking")]
     [SerializeField] private float _separationRadius = 2f;
 
+    [Header("Threat")]
+    [SerializeField] private Agent _hunter;
+    [SerializeField] private bool _threatDetected;
+    [SerializeField, Range(0f, 5f)]
+    private float _evadeWeight = 2f;
+
+    [Header("Arrive")]
+    [SerializeField] private float _slowingDistance = 3f;
+    [SerializeField] private float _stopDistance = 1.2f;
+
+    [SerializeField] private InterestObject _interestTarget;
+
     [SerializeField, Range(0f, 3f)]
     private float _separationWeight = 1f;
+
     [SerializeField, Range(0f, 3f)]
     private float _alignmentWeight = 1f;
+
     [SerializeField, Range(0f, 3f)]
     private float _cohesionWeight = 1f;
 
@@ -54,8 +68,25 @@ public class BoidAgent : Agent
     private void Update()
     {
         DetectNeighbors();
-        _velocity += Flocking();
+        DetectInterestObject();
 
+        _threatDetected = DetectHunter();
+
+        if (_threatDetected)
+        {
+            _velocity += Evade(_hunter) * _evadeWeight
+                       + CalculateSeparation() * _separationWeight;
+        }
+        else if (_interestTarget != null)
+        {
+            _velocity += Arrive(_interestTarget.transform.position)
+                       + CalculateSeparation() * _separationWeight;
+        }
+        else
+        {
+            _velocity += Flocking();
+        }
+        _velocity.y = 0f;
         _velocity = Vector3.ClampMagnitude(
             _velocity,
             _maxSpeed
@@ -85,8 +116,48 @@ public class BoidAgent : Agent
         Vector3 direction =
             targetPosition - transform.position;
 
+        direction.y = 0f;
+
         Vector3 desired =
             direction.normalized * _maxSpeed;
+
+        return CalculateSteering(desired);
+    }
+    private Vector3 Flee(Vector3 targetPosition)
+    {
+        Vector3 direction =
+            transform.position - targetPosition;
+
+        Vector3 desired =
+            direction.normalized * _maxSpeed;
+
+        return CalculateSteering(desired);
+    }
+    private Vector3 Arrive(Vector3 targetPosition)
+    {
+        Vector3 direction =
+            targetPosition - transform.position;
+
+        direction.y = 0f;
+
+        float distance = direction.magnitude;
+
+        if (distance <= _stopDistance)
+        {
+            return CalculateSteering(Vector3.zero);
+        }
+
+        float targetSpeed = _maxSpeed
+            * (distance - _stopDistance)
+            / (_slowingDistance - _stopDistance);
+
+        float desiredSpeed = Mathf.Min(
+            targetSpeed,
+            _maxSpeed
+        );
+
+        Vector3 desired =
+            direction.normalized * desiredSpeed;
 
         return CalculateSteering(desired);
     }
@@ -127,10 +198,18 @@ public class BoidAgent : Agent
 
             if (InRange(agent.transform.position, _separationRadius))
             {
-                desired +=
-                    agent.transform.position - transform.position;
+                Vector3 direction =
+                    transform.position - agent.transform.position;
 
-                count++;
+                direction.y = 0f;
+
+                float distance = direction.magnitude;
+
+                if (distance > 0.001f)
+                {
+                    desired += direction.normalized / distance;
+                    count++;
+                }
             }
         }
 
@@ -142,7 +221,7 @@ public class BoidAgent : Agent
         desired /= count;
 
         return CalculateSteering(
-            -desired.normalized * _maxSpeed
+            desired.normalized * _maxSpeed
         );
     }
     private Vector3 CalculateAlignment()
@@ -209,9 +288,87 @@ public class BoidAgent : Agent
              + CalculateAlignment() * _alignmentWeight
              + CalculateCohesion() * _cohesionWeight;
     }
+    private Vector3 CalculateFuture(Agent target)
+    {
+        float distance = Vector3.Distance(
+            transform.position,
+            target.transform.position
+        );
+
+        float combinedSpeed =
+            _maxSpeed + target.Velocity.magnitude;
+
+        if (combinedSpeed <= 0f)
+        {
+            return target.transform.position;
+        }
+
+        float prediction = distance / combinedSpeed;
+
+        return target.transform.position
+             + target.Velocity * prediction;
+    }
+    private Vector3 Evade(Agent target)
+    {
+        Vector3 futurePosition = CalculateFuture(target);
+
+        return Flee(futurePosition);
+    }
+    private bool DetectHunter()
+    {
+        if (_hunter == null)
+        {
+            return false;
+        }
+
+        if (!_hunter.isActiveAndEnabled)
+        {
+            return false;
+        }
+
+        return InRange(
+            _hunter.transform.position,
+            _viewRadius
+        );
+    }
+    private void DetectInterestObject()
+    {
+        _interestTarget = null;
+        float closestDistance = float.MaxValue;
+
+        foreach (InterestObject interest in InterestObject.AllObjects)
+        {
+            if (interest == null)
+            {
+                continue;
+            }
+
+            if (!InRange(interest.transform.position, _viewRadius))
+            {
+                continue;
+            }
+
+            float distance = (
+                interest.transform.position - transform.position
+            ).sqrMagnitude;
+
+            if (distance < closestDistance)
+            {
+                closestDistance = distance;
+                _interestTarget = interest;
+            }
+        }
+    }
     private void OnDrawGizmosSelected()
     {
-        Gizmos.color = Color.cyan;
+        if (Application.isPlaying && _threatDetected)
+        {
+            Gizmos.color = Color.magenta;
+        }
+        else
+        {
+            Gizmos.color = Color.cyan;
+        }
 
         Gizmos.DrawWireSphere(
             transform.position,
