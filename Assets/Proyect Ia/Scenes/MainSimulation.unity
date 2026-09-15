@@ -223,6 +223,18 @@ PrefabInstance:
       propertyPath: _maxSpeed
       value: 4
       objectReference: {fileID: 0}
+    - target: {fileID: 6617000584310778442, guid: 0225a5f54cf1e74458936460ff163085, type: 3}
+      propertyPath: _maxSteering
+      value: 6
+      objectReference: {fileID: 0}
+    - target: {fileID: 6617000584310778442, guid: 0225a5f54cf1e74458936460ff163085, type: 3}
+      propertyPath: _separationRadius
+      value: 1.5
+      objectReference: {fileID: 0}
+    - target: {fileID: 6617000584310778442, guid: 0225a5f54cf1e74458936460ff163085, type: 3}
+      propertyPath: _separationWeight
+      value: 1.5
+      objectReference: {fileID: 0}
     - target: {fileID: 8035542890583203573, guid: 0225a5f54cf1e74458936460ff163085, type: 3}
       propertyPath: m_Name
       value: Boid_04
@@ -511,7 +523,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 64685214270613069, guid: 0225a5f54cf1e74458936460ff163085, type: 3}
       propertyPath: m_LocalPosition.x
-      value: 2
+      value: 0.5
       objectReference: {fileID: 0}
     - target: {fileID: 64685214270613069, guid: 0225a5f54cf1e74458936460ff163085, type: 3}
       propertyPath: m_LocalPosition.y
@@ -552,6 +564,18 @@ PrefabInstance:
     - target: {fileID: 6617000584310778442, guid: 0225a5f54cf1e74458936460ff163085, type: 3}
       propertyPath: _maxSpeed
       value: 4
+      objectReference: {fileID: 0}
+    - target: {fileID: 6617000584310778442, guid: 0225a5f54cf1e74458936460ff163085, type: 3}
+      propertyPath: _maxSteering
+      value: 6
+      objectReference: {fileID: 0}
+    - target: {fileID: 6617000584310778442, guid: 0225a5f54cf1e74458936460ff163085, type: 3}
+      propertyPath: _separationRadius
+      value: 1.5
+      objectReference: {fileID: 0}
+    - target: {fileID: 6617000584310778442, guid: 0225a5f54cf1e74458936460ff163085, type: 3}
+      propertyPath: _separationWeight
+      value: 1.5
       objectReference: {fileID: 0}
     - target: {fileID: 8035542890583203573, guid: 0225a5f54cf1e74458936460ff163085, type: 3}
       propertyPath: m_Name
@@ -781,6 +805,18 @@ PrefabInstance:
       propertyPath: _maxSpeed
       value: 4
       objectReference: {fileID: 0}
+    - target: {fileID: 6617000584310778442, guid: 0225a5f54cf1e74458936460ff163085, type: 3}
+      propertyPath: _maxSteering
+      value: 6
+      objectReference: {fileID: 0}
+    - target: {fileID: 6617000584310778442, guid: 0225a5f54cf1e74458936460ff163085, type: 3}
+      propertyPath: _separationRadius
+      value: 1.5
+      objectReference: {fileID: 0}
+    - target: {fileID: 6617000584310778442, guid: 0225a5f54cf1e74458936460ff163085, type: 3}
+      propertyPath: _separationWeight
+      value: 1.5
+      objectReference: {fileID: 0}
     - target: {fileID: 8035542890583203573, guid: 0225a5f54cf1e74458936460ff163085, type: 3}
       propertyPath: m_Name
       value: Boid_06
@@ -890,6 +926,18 @@ PrefabInstance:
       propertyPath: _maxSpeed
       value: 4
       objectReference: {fileID: 0}
+    - target: {fileID: 6617000584310778442, guid: 0225a5f54cf1e74458936460ff163085, type: 3}
+      propertyPath: _maxSteering
+      value: 6
+      objectReference: {fileID: 0}
+    - target: {fileID: 6617000584310778442, guid: 0225a5f54cf1e74458936460ff163085, type: 3}
+      propertyPath: _separationRadius
+      value: 1.5
+      objectReference: {fileID: 0}
+    - target: {fileID: 6617000584310778442, guid: 0225a5f54cf1e74458936460ff163085, type: 3}
+      propertyPath: _separationWeight
+      value: 1.5
+      objectReference: {fileID: 0}
     - target: {fileID: 8035542890583203573, guid: 0225a5f54cf1e74458936460ff163085, type: 3}
       propertyPath: m_Name
       value: Boid_03
@@ -950,6 +998,18 @@ PrefabInstance:
     - target: {fileID: 6617000584310778442, guid: 0225a5f54cf1e74458936460ff163085, type: 3}
       propertyPath: _maxSpeed
       value: 4
+      objectReference: {fileID: 0}
+    - target: {fileID: 6617000584310778442, guid: 0225a5f54cf1e74458936460ff163085, type: 3}
+      propertyPath: _maxSteering
+      value: 6
+      objectReference: {fileID: 0}
+    - target: {fileID: 6617000584310778442, guid: 0225a5f54cf1e74458936460ff163085, type: 3}
+      propertyPath: _separationRadius
+      value: 1.5
+      objectReference: {fileID: 0}
+    - target: {fileID: 6617000584310778442, guid: 0225a5f54cf1e74458936460ff163085, type: 3}
+      propertyPath: _separationWeight
+      value: 1.5
       objectReference: {fileID: 0}
     - target: {fileID: 8035542890583203573, guid: 0225a5f54cf1e74458936460ff163085, type: 3}
       propertyPath: m_Name
@@ -1013,7 +1073,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 64685214270613069, guid: 0225a5f54cf1e74458936460ff163085, type: 3}
       propertyPath: m_LocalPosition.x
-      value: 0
+      value: -0.5
       objectReference: {fileID: 0}
     - target: {fileID: 64685214270613069, guid: 0225a5f54cf1e74458936460ff163085, type: 3}
       propertyPath: m_LocalPosition.y
@@ -1054,6 +1114,22 @@ PrefabInstance:
     - target: {fileID: 6617000584310778442, guid: 0225a5f54cf1e74458936460ff163085, type: 3}
       propertyPath: _maxSpeed
       value: 4
+      objectReference: {fileID: 0}
+    - target: {fileID: 6617000584310778442, guid: 0225a5f54cf1e74458936460ff163085, type: 3}
+      propertyPath: _viewRadius
+      value: 6
+      objectReference: {fileID: 0}
+    - target: {fileID: 6617000584310778442, guid: 0225a5f54cf1e74458936460ff163085, type: 3}
+      propertyPath: _maxSteering
+      value: 6
+      objectReference: {fileID: 0}
+    - target: {fileID: 6617000584310778442, guid: 0225a5f54cf1e74458936460ff163085, type: 3}
+      propertyPath: _separationRadius
+      value: 2
+      objectReference: {fileID: 0}
+    - target: {fileID: 6617000584310778442, guid: 0225a5f54cf1e74458936460ff163085, type: 3}
+      propertyPath: _separationWeight
+      value: 1.5
       objectReference: {fileID: 0}
     - target: {fileID: 8035542890583203573, guid: 0225a5f54cf1e74458936460ff163085, type: 3}
       propertyPath: m_Name

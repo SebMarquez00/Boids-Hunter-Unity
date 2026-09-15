@@ -19,6 +19,8 @@ public class BoidAgent : Agent
     private float _separationWeight = 1f;
     [SerializeField, Range(0f, 3f)]
     private float _alignmentWeight = 1f;
+    [SerializeField, Range(0f, 3f)]
+    private float _cohesionWeight = 1f;
 
     private static List<BoidAgent> _allAgents =
         new List<BoidAgent>();
@@ -77,6 +79,16 @@ public class BoidAgent : Agent
             steering,
             _maxSteering * Time.deltaTime
         );
+    }
+    private Vector3 Seek(Vector3 targetPosition)
+    {
+        Vector3 direction =
+            targetPosition - transform.position;
+
+        Vector3 desired =
+            direction.normalized * _maxSpeed;
+
+        return CalculateSteering(desired);
     }
     private bool InRange(Vector3 position, float radius)
     {
@@ -163,10 +175,39 @@ public class BoidAgent : Agent
             desired.normalized * _maxSpeed
         );
     }
+    private Vector3 CalculateCohesion()
+    {
+        Vector3 desiredPosition = Vector3.zero;
+        int count = 0;
+
+        foreach (BoidAgent agent in _allAgents)
+        {
+            if (agent == this)
+            {
+                continue;
+            }
+
+            if (InRange(agent.transform.position, _viewRadius))
+            {
+                desiredPosition += agent.transform.position;
+                count++;
+            }
+        }
+
+        if (count == 0)
+        {
+            return Vector3.zero;
+        }
+
+        desiredPosition /= count;
+
+        return Seek(desiredPosition);
+    }
     private Vector3 Flocking()
     {
         return CalculateSeparation() * _separationWeight
-             + CalculateAlignment() * _alignmentWeight;
+             + CalculateAlignment() * _alignmentWeight
+             + CalculateCohesion() * _cohesionWeight;
     }
     private void OnDrawGizmosSelected()
     {
