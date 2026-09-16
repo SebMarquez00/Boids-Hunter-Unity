@@ -3,13 +3,14 @@ using UnityEngine;
 
 public enum HunterStates
 {
-    Patrol
+    Patrol,
+    Attack
 }
 
 public class HunterAgent : Agent
 {
     [Header("Movement")]
-    [SerializeField] private float _speed = 3f;
+    [SerializeField] private float _speed = 4.5f;
 
     [Header("Patrol")]
     [SerializeField]
@@ -28,6 +29,40 @@ public class HunterAgent : Agent
     public float WaypointCheckDistance =>
         _waypointCheckDistance;
 
+    [Header("Perception")]
+    [SerializeField] private float _viewRadius = 8f;
+
+    [Header("Attack")]
+    [SerializeField] private float _tba = 1.5f;
+    [SerializeField] private float _rangeAttackRadius = 6f;
+    [SerializeField] private float _meleeAttackRadius = 1.5f;
+
+    [SerializeField] private float _meleeDamage = 10f;
+
+    [SerializeField] private float _attackTimer;
+
+    [Header("Target")]
+    [SerializeField] private BoidAgent _target;
+
+    [Header("Projectile")]
+    [SerializeField] private HunterProjectile _projectilePrefab;
+
+    private HunterProjectile _activeProjectile;
+    private bool _projectileHit;
+
+    public bool HasActiveProjectile =>
+        _activeProjectile != null;
+
+    public bool ProjectileHit => _projectileHit;
+
+    public float TBA => _tba;
+    public float RangeAttackRadius => _rangeAttackRadius;
+    public float MeleeAttackRadius => _meleeAttackRadius;
+
+    public bool CanAttack => _attackTimer >= TBA;
+
+    public BoidAgent Target => _target;
+
     private void Awake()
     {
         _stateMachine = new StateMachine();
@@ -35,9 +70,17 @@ public class HunterAgent : Agent
         HunterPatrolState patrolState =
             new HunterPatrolState(this, _stateMachine);
 
+        HunterAttackState attackState =
+            new HunterAttackState(this, _stateMachine);
+
         _stateMachine.RegisterState(
             HunterStates.Patrol,
             patrolState
+        );
+
+        _stateMachine.RegisterState(
+            HunterStates.Attack,
+            attackState
         );
 
         _stateMachine.ChangeState(HunterStates.Patrol);
@@ -45,6 +88,7 @@ public class HunterAgent : Agent
 
     private void Update()
     {
+        _attackTimer += Time.deltaTime;
         _stateMachine.Update();
 
         _currentStateName =
@@ -82,7 +126,147 @@ public class HunterAgent : Agent
             transform.forward = _velocity.normalized;
         }
     }
+    public float DistanceTo(Vector3 position)
+    {
+        Vector3 direction = position - transform.position;
 
+        direction.y = 0f;
+
+        return direction.magnitude;
+    }
+
+    public bool CanSee(BoidAgent agent)
+    {
+        if (agent == null || !agent.isActiveAndEnabled)
+        {
+            return false;
+        }
+
+        return DistanceTo(agent.transform.position) <= _viewRadius;
+    }
+
+    public BoidAgent FindClosestAliveBoid()
+    {
+        BoidAgent closest = null;
+        float closestDistance = float.MaxValue;
+
+        foreach (BoidAgent boid in BoidAgent.AllAgents)
+        {
+            if (boid == null || !boid.IsAlive)
+            {
+                continue;
+            }
+
+            if (!CanSee(boid))
+            {
+                continue;
+            }
+
+            float distance = DistanceTo(boid.transform.position);
+
+            if (distance < closestDistance)
+            {
+                closestDistance = distance;
+                closest = boid;
+            }
+        }
+
+        return closest;
+    }
+
+    public void SetTarget(BoidAgent target)
+    {
+        _target = target;
+    }
+    public bool TryMeleeAttack()
+    {
+        if (!CanAttack)
+        {
+            return false;
+        }
+
+        if (_target == null || !_target.IsAlive || !CanSee(_target))
+        {
+            return false;
+        }
+
+        if (DistanceTo(_target.transform.position) > MeleeAttackRadius)
+        {
+            return false;
+        }
+
+        if (_meleeDamage <= 0f)
+        {
+            return false;
+        }
+
+        _target.TakeDamage(_meleeDamage);
+
+        _attackTimer = 0f;
+
+        Debug.Log("Hunter: ataque cuerpo a cuerpo");
+
+        return true;
+    }
+    public void Shoot()
+    {
+        if (!CanAttack || HasActiveProjectile)
+        {
+            return;
+        }
+
+        if (_projectilePrefab == null)
+        {
+            return;
+        }
+
+        if (_target == null || !_target.IsAlive || !CanSee(_target))
+        {
+            return;
+        }
+
+        if (DistanceTo(_target.transform.position) > RangeAttackRadius)
+        {
+            return;
+        }
+
+        _projectileHit = false;
+
+        _activeProjectile = Instantiate(
+            _projectilePrefab,
+            transform.position,
+            Quaternion.identity
+        );
+
+        _activeProjectile.Initialize(
+            this,
+            _target
+        );
+    }
+
+    public void ResolveProjectile(bool hit)
+    {
+        _activeProjectile = null;
+        _projectileHit = hit;
+
+        if (hit)
+        {
+            _attackTimer = 0f;
+
+            Debug.Log("Hunter: impacto a distancia");
+        }
+    }
+
+    public void ClearProjectile()
+    {
+        if (_activeProjectile != null)
+        {
+            Destroy(_activeProjectile.gameObject);
+        }
+
+        _activeProjectile = null;
+        _projectileHit = false;
+    }
     public void Stop()
     {
         _velocity = Vector3.zero;

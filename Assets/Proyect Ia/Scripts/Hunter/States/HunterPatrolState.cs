@@ -20,6 +20,19 @@ public class HunterPatrolState : State
 
     public override void Update()
     {
+        if (_agent.CanAttack)
+        {
+            BoidAgent target = _agent.FindClosestAliveBoid();
+
+            if (target != null)
+            {
+                _agent.SetTarget(target);
+
+                _stateMachine.ChangeState(HunterStates.Attack);
+                return;
+            }
+        }
+
         if (_agent.Waypoints.Count == 0)
         {
             _agent.Stop();

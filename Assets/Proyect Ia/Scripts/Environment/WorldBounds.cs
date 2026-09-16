@@ -4,8 +4,8 @@ public class WorldBounds : MonoBehaviour
 {
     public static WorldBounds Instance { get; private set; }
 
-    [SerializeField] private float _width = 28f;
-    [SerializeField] private float _depth = 28f;
+    [SerializeField] private float _width = 16f;
+    [SerializeField] private float _depth = 16f;
     [SerializeField] private bool _drawGizmos = true;
 
     private void Awake()

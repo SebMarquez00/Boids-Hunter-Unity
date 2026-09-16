@@ -7,11 +7,14 @@ public class BoidAgent : Agent
     [Header("Health")]
     [SerializeField] private float _maxHealth = 20f;
     [SerializeField] private float _currentHealth;
+    [SerializeField] private Renderer _bodyRenderer;
+
+    private Color _originalColor;
 
     public bool IsAlive => _currentHealth > 0f;
 
     [Header("Stats")]
-    [SerializeField] private float _maxSpeed = 4f;
+    [SerializeField] private float _maxSpeed = 3f;
     [SerializeField] private float _maxSteering = 8f;
 
     [Header("Perception")]
@@ -54,6 +57,8 @@ public class BoidAgent : Agent
     private static List<BoidAgent> _allAgents =
         new List<BoidAgent>();
 
+    public static IEnumerable<BoidAgent> AllAgents => _allAgents;
+
     private void OnEnable()
     {
         _currentHealth = _maxHealth;
@@ -64,11 +69,29 @@ public class BoidAgent : Agent
         _interestTarget = null;
 
         _allAgents.Add(this);
+
+        if (_bodyRenderer != null)
+        {
+            _bodyRenderer.material.color = _originalColor;
+        }
     }
 
     private void OnDisable()
     {
         _allAgents.Remove(this);
+    }
+
+    private void Awake()
+    {
+        if (_bodyRenderer == null)
+        {
+            _bodyRenderer = GetComponent<Renderer>();
+        }
+
+        if (_bodyRenderer != null)
+        {
+            _originalColor = _bodyRenderer.material.color;
+        }
     }
 
     private void Start()
@@ -156,6 +179,8 @@ public class BoidAgent : Agent
     {
         Vector3 direction =
             transform.position - targetPosition;
+
+        direction.y = 0f;
 
         Vector3 desired =
             direction.normalized * _maxSpeed;
@@ -456,6 +481,11 @@ public class BoidAgent : Agent
         _threatDetected = false;
         _interestTarget = null;
         _detectedNeighbors = 0;
+
+        if (_bodyRenderer != null)
+        {
+            _bodyRenderer.material.color = Color.red;
+        }
     }
     [ContextMenu("Debug/Recibir 5 de dano")]
     private void DebugTakeDamage()
