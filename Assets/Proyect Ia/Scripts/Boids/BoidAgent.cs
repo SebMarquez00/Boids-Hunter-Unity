@@ -11,6 +11,20 @@ public class BoidAgent : Agent
 
     private Color _originalColor;
 
+    [Header("Sickness")]
+    [SerializeField] private float _sickDuration = 5f;
+    [SerializeField, Range(0.1f, 1f)] private float _sickSpeedMultiplier = 0.35f;
+    [SerializeField] private Color _sickColor = new Color(0.15f, 0.7f, 0.55f, 1f);
+    [SerializeField] private float _sickTimer;
+
+    public bool IsSick => _sickTimer > 0f;
+    public bool IsInteracting => _isInteracting;
+    public float CurrentMaxSpeed => _maxSpeed * (IsSick ? _sickSpeedMultiplier : 1f);
+
+    [Header("Respawn")]
+    [SerializeField] private float _respawnDelay = 5f;
+    private bool _collected;
+
     public bool IsAlive => _currentHealth > 0f;
 
     [Header("Stats")]
@@ -39,7 +53,7 @@ public class BoidAgent : Agent
     [Header("Interaction")]
     [SerializeField] private float _interactionRadius = 1.5f;
     [SerializeField] private float _interactionDamage = 5f;
-    [SerializeField] private float _interactionInterval = 1f;
+    [SerializeField] private float _interactionInterval = 0.25f;
 
     [SerializeField] private bool _isInteracting;
 
@@ -62,6 +76,10 @@ public class BoidAgent : Agent
     private void OnEnable()
     {
         _currentHealth = _maxHealth;
+        _sickTimer = 0f;
+        _collected = false;
+        _detectedNeighbors = 0;
+        InitializeVelocity();
 
         _interactionTimer = 0f;
         _isInteracting = false;
@@ -78,6 +96,7 @@ public class BoidAgent : Agent
 
     private void OnDisable()
     {
+        ReleaseInterestTarget();
         _allAgents.Remove(this);
     }
 
@@ -94,7 +113,7 @@ public class BoidAgent : Agent
         }
     }
 
-    private void Start()
+    private void InitializeVelocity()
     {
         Vector3 randomDirection = new Vector3(
             Random.Range(-1f, 1f),
@@ -107,7 +126,7 @@ public class BoidAgent : Agent
             randomDirection = Vector3.forward;
         }
 
-        _velocity = randomDirection.normalized * _maxSpeed;
+        _velocity = randomDirection.normalized * CurrentMaxSpeed;
     }
 
     private void Update()
@@ -117,10 +136,18 @@ public class BoidAgent : Agent
             return;
         }
 
+        UpdateSickness();
         DetectNeighbors();
-        DetectInterestObject();
-
         _threatDetected = DetectHunter();
+
+        if (_threatDetected)
+        {
+            ReleaseInterestTarget();
+        }
+        else
+        {
+            DetectInterestObject();
+        }
 
         if (_threatDetected)
         {
@@ -139,7 +166,7 @@ public class BoidAgent : Agent
         _velocity.y = 0f;
         _velocity = Vector3.ClampMagnitude(
             _velocity,
-            _maxSpeed
+            CurrentMaxSpeed
         );
 
         transform.position += _velocity * Time.deltaTime;
@@ -171,7 +198,7 @@ public class BoidAgent : Agent
         direction.y = 0f;
 
         Vector3 desired =
-            direction.normalized * _maxSpeed;
+            direction.normalized * CurrentMaxSpeed;
 
         return CalculateSteering(desired);
     }
@@ -183,7 +210,7 @@ public class BoidAgent : Agent
         direction.y = 0f;
 
         Vector3 desired =
-            direction.normalized * _maxSpeed;
+            direction.normalized * CurrentMaxSpeed;
 
         return CalculateSteering(desired);
     }
@@ -201,13 +228,13 @@ public class BoidAgent : Agent
             return CalculateSteering(Vector3.zero);
         }
 
-        float targetSpeed = _maxSpeed
+        float targetSpeed = CurrentMaxSpeed
             * (distance - _stopDistance)
             / (_slowingDistance - _stopDistance);
 
         float desiredSpeed = Mathf.Min(
             targetSpeed,
-            _maxSpeed
+            CurrentMaxSpeed
         );
 
         Vector3 desired =
@@ -275,7 +302,7 @@ public class BoidAgent : Agent
         desired /= count;
 
         return CalculateSteering(
-            desired.normalized * _maxSpeed
+            desired.normalized * CurrentMaxSpeed
         );
     }
     private Vector3 CalculateAlignment()
@@ -305,7 +332,7 @@ public class BoidAgent : Agent
         desired /= count;
 
         return CalculateSteering(
-            desired.normalized * _maxSpeed
+            desired.normalized * CurrentMaxSpeed
         );
     }
     private Vector3 CalculateCohesion()
@@ -350,7 +377,7 @@ public class BoidAgent : Agent
         );
 
         float combinedSpeed =
-            _maxSpeed + target.Velocity.magnitude;
+            CurrentMaxSpeed + target.Velocity.magnitude;
 
         if (combinedSpeed <= 0f)
         {
@@ -385,39 +412,46 @@ public class BoidAgent : Agent
             _viewRadius
         );
     }
+    private void ReleaseInterestTarget()
+    {
+        if (_interestTarget != null) _interestTarget.Release(this);
+        _interestTarget = null;
+        _interactionTimer = 0f;
+        _isInteracting = false;
+    }
+
     private void DetectInterestObject()
     {
-        InterestObject previousTarget = _interestTarget;
-        _interestTarget = null;
+        // Conservar la reserva mientras el objeto siga siendo un objetivo valido.
+        if (_interestTarget != null && _interestTarget.IsAvailableFor(this)
+            && InRange(_interestTarget.transform.position, _viewRadius))
+        {
+            return;
+        }
+
+        ReleaseInterestTarget();
+        InterestObject closest = null;
         float closestDistance = float.MaxValue;
 
         foreach (InterestObject interest in InterestObject.AllObjects)
         {
-            if (interest == null || !interest.IsAlive)
-            {
-                continue;
-            }
+            if (interest == null || !interest.IsAvailableFor(this)) continue;
+            if (!InRange(interest.transform.position, _viewRadius)) continue;
 
-            if (!InRange(interest.transform.position, _viewRadius))
-            {
-                continue;
-            }
-
-            float distance = (
-                interest.transform.position - transform.position
-            ).sqrMagnitude;
-
+            float distance = (interest.transform.position - transform.position).sqrMagnitude;
             if (distance < closestDistance)
             {
                 closestDistance = distance;
-                _interestTarget = interest;
+                closest = interest;
             }
         }
-        if (_interestTarget != previousTarget)
+
+        if (closest != null && closest.TryReserve(this))
         {
-            _interactionTimer = 0f;
+            _interestTarget = closest;
         }
     }
+
     private void UpdateInteraction()
     {
         _isInteracting = false;
@@ -428,7 +462,8 @@ public class BoidAgent : Agent
             return;
         }
 
-        if (_interestTarget == null || !_interestTarget.IsAlive)
+        if (_interestTarget == null || !_interestTarget.IsAvailableFor(this)
+            || _interestTarget.ReservedBy != this)
         {
             _interactionTimer = 0f;
             return;
@@ -449,11 +484,34 @@ public class BoidAgent : Agent
 
         if (_interactionTimer >= _interactionInterval)
         {
-            _interestTarget.TakeDamage(_interactionDamage);
-
+            bool consumed = _interestTarget.Consume(this, _interactionDamage);
             _interactionTimer = 0f;
+
+            if (consumed)
+            {
+                ReleaseInterestTarget();
+                BecomeSick();
+            }
         }
     }
+    private void BecomeSick()
+    {
+        _sickTimer = _sickDuration;
+        _velocity = Vector3.ClampMagnitude(_velocity, CurrentMaxSpeed);
+        if (_bodyRenderer != null) _bodyRenderer.material.color = _sickColor;
+    }
+
+    private void UpdateSickness()
+    {
+        if (!IsSick) return;
+
+        _sickTimer = Mathf.Max(0f, _sickTimer - Time.deltaTime);
+        if (!IsSick && _bodyRenderer != null)
+        {
+            _bodyRenderer.material.color = _originalColor;
+        }
+    }
+
     public void TakeDamage(float damage)
     {
         if (!IsAlive || damage <= 0f)
@@ -471,8 +529,28 @@ public class BoidAgent : Agent
             Die();
         }
     }
+    public bool Collect()
+    {
+        if (IsAlive || _collected || !gameObject.activeInHierarchy)
+        {
+            return false;
+        }
+
+        if (WorldBounds.Instance == null)
+        {
+            return false;
+        }
+
+        _collected = true;
+        // El temporizador vive en WorldBounds porque este objeto se desactiva.
+        WorldBounds.Instance.RespawnAfter(this, _respawnDelay);
+        return true;
+    }
+
     private void Die()
     {
+        ReleaseInterestTarget();
+        _sickTimer = 0f;
         _velocity = Vector3.zero;
 
         _interactionTimer = 0f;

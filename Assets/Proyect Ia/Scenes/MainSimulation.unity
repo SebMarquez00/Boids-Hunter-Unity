@@ -750,7 +750,15 @@ MonoBehaviour:
   - {fileID: 1761228511}
   - {fileID: 1675693925}
   _waypointCheckDistance: 0.3
-  _currentStateName:
+  _currentStateName: 
+  _gatherRadius: 1.2
+  _gatherDuration: 2
+  _gatherProgress: 0
+  _interestPrefab: {fileID: 6101733212086719978, guid: 6ba8a1636d8992b438303b0f339ed18e, type: 3}
+  _interestParent: {fileID: 0}
+  _spawnInterval: 5
+  _interestHeight: 0.125
+  _spawnTimer: 0
   _viewRadius: 8
   _tba: 1.5
   _rangeAttackRadius: 6

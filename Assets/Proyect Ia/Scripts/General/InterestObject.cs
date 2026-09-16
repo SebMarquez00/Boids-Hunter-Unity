@@ -3,42 +3,67 @@ using UnityEngine;
 
 public class InterestObject : MonoBehaviour
 {
-    public static List<InterestObject> AllObjects =
-        new List<InterestObject>();
+    public static List<InterestObject> AllObjects = new List<InterestObject>();
 
     [Header("Health")]
-    [SerializeField] private float _maxHealth = 20f;
+    [SerializeField] private float _maxHealth = 10f;
     [SerializeField] private float _currentHealth;
 
+    [Header("Reservation")]
+    [SerializeField] private BoidAgent _reservedBy;
+
     public bool IsAlive => _currentHealth > 0f;
+    public BoidAgent ReservedBy => _reservedBy;
 
     private void OnEnable()
     {
         _currentHealth = _maxHealth;
-
+        _reservedBy = null;
         AllObjects.Add(this);
     }
 
     private void OnDisable()
     {
         AllObjects.Remove(this);
+        _reservedBy = null;
     }
 
-    public void TakeDamage(float damage)
+    public bool IsAvailableFor(BoidAgent boid)
     {
-        if (!IsAlive || damage <= 0f)
+        if (!isActiveAndEnabled || !IsAlive || boid == null || !boid.IsAlive)
         {
-            return;
+            return false;
         }
 
-        _currentHealth = Mathf.Max(
-            0f,
-            _currentHealth - damage
-        );
-
-        if (!IsAlive)
+        if (_reservedBy != null && (!_reservedBy.IsAlive || !_reservedBy.isActiveAndEnabled))
         {
-            Destroy(gameObject);
+            _reservedBy = null;
         }
+
+        return _reservedBy == null || _reservedBy == boid;
+    }
+
+    public bool TryReserve(BoidAgent boid)
+    {
+        if (!IsAvailableFor(boid)) return false;
+        _reservedBy = boid;
+        return true;
+    }
+
+    public void Release(BoidAgent boid)
+    {
+        if (_reservedBy == boid) _reservedBy = null;
+    }
+
+    // Devuelve true solo cuando este Boid termina de consumir el objeto.
+    public bool Consume(BoidAgent boid, float damage)
+    {
+        if (!IsAlive || _reservedBy != boid || damage <= 0f) return false;
+
+        _currentHealth = Mathf.Max(0f, _currentHealth - damage);
+        if (IsAlive) return false;
+
+        Destroy(gameObject);
+        return true;
     }
 }

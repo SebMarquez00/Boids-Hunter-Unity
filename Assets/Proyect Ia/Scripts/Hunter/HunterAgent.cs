@@ -4,7 +4,9 @@ using UnityEngine;
 public enum HunterStates
 {
     Patrol,
-    Attack
+    Attack,
+    Gather,
+    PlaceInterest
 }
 
 public class HunterAgent : Agent
@@ -21,6 +23,25 @@ public class HunterAgent : Agent
 
     [Header("Debug")]
     [SerializeField] private string _currentStateName;
+
+    [Header("Gather")]
+    [SerializeField] private float _gatherRadius = 1.2f;
+    [SerializeField] private float _gatherDuration = 2f;
+    [SerializeField] private float _gatherProgress;
+
+    [Header("Interest Objects")]
+    [SerializeField] private InterestObject _interestPrefab;
+    [SerializeField] private Transform _interestParent;
+    [SerializeField] private float _spawnInterval = 5f;
+    [SerializeField] private float _interestHeight = 0.125f;
+    [SerializeField] private float _spawnTimer;
+    private const int MaxInterestObjects = 5;
+
+    [SerializeField, Min(0f)] private float _placementDuration = 1f;
+    public float PlacementDuration => _placementDuration;
+
+    public float GatherRadius => _gatherRadius;
+    public float GatherDuration => _gatherDuration;
 
     private StateMachine _stateMachine;
 
@@ -83,12 +104,29 @@ public class HunterAgent : Agent
             attackState
         );
 
+        HunterGatherState gatherState =
+            new HunterGatherState(this, _stateMachine);
+
+        _stateMachine.RegisterState(
+            HunterStates.Gather,
+            gatherState
+        );
+
+        HunterPlaceInterestState placementState =
+            new HunterPlaceInterestState(this, _stateMachine);
+
+        _stateMachine.RegisterState(
+            HunterStates.PlaceInterest,
+            placementState
+        );
+
         _stateMachine.ChangeState(HunterStates.Patrol);
     }
 
     private void Update()
     {
         _attackTimer += Time.deltaTime;
+        _spawnTimer += Time.deltaTime;
         _stateMachine.Update();
 
         _currentStateName =
@@ -147,12 +185,22 @@ public class HunterAgent : Agent
 
     public BoidAgent FindClosestAliveBoid()
     {
+        return FindClosestBoid(true);
+    }
+
+    public BoidAgent FindClosestDeadBoid()
+    {
+        return FindClosestBoid(false);
+    }
+
+    private BoidAgent FindClosestBoid(bool alive)
+    {
         BoidAgent closest = null;
         float closestDistance = float.MaxValue;
 
         foreach (BoidAgent boid in BoidAgent.AllAgents)
         {
-            if (boid == null || !boid.IsAlive)
+            if (boid == null || boid.IsAlive != alive)
             {
                 continue;
             }
@@ -267,6 +315,48 @@ public class HunterAgent : Agent
         _activeProjectile = null;
         _projectileHit = false;
     }
+    public void SetGatherProgress(float progress)
+    {
+        _gatherProgress = progress;
+    }
+
+    public bool CanPlaceInterestObject()
+    {
+        if (_interestPrefab == null
+            || _spawnTimer < Mathf.Max(0.1f, _spawnInterval)
+            || InterestObject.AllObjects.Count >= MaxInterestObjects)
+        {
+            return false;
+        }
+
+        foreach (InterestObject interest in InterestObject.AllObjects)
+        {
+            if (interest == null) continue;
+            Vector3 offset = interest.transform.position - transform.position;
+            offset.y = 0f;
+            if (offset.sqrMagnitude < 1f) return false;
+        }
+
+        return true;
+    }
+
+    public void PlaceInterestObject()
+    {
+        if (!CanPlaceInterestObject()) return;
+
+        Vector3 position = transform.position;
+        position.y = _interestHeight;
+
+        Instantiate(
+            _interestPrefab,
+            position,
+            Quaternion.identity,
+            _interestParent
+        );
+
+        _spawnTimer = 0f;
+    }
+
     public void Stop()
     {
         _velocity = Vector3.zero;

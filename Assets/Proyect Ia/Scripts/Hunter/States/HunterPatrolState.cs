@@ -20,6 +20,22 @@ public class HunterPatrolState : State
 
     public override void Update()
     {
+        // Antes de empezar un nuevo ataque, priorizar una recoleccion disponible.
+        BoidAgent eliminated = _agent.FindClosestDeadBoid();
+
+        if (eliminated != null)
+        {
+            _agent.SetTarget(eliminated);
+            _stateMachine.ChangeState(HunterStates.Gather);
+            return;
+        }
+
+        if (_agent.CanPlaceInterestObject())
+        {
+            _stateMachine.ChangeState(HunterStates.PlaceInterest);
+            return;
+        }
+
         if (_agent.CanAttack)
         {
             BoidAgent target = _agent.FindClosestAliveBoid();
