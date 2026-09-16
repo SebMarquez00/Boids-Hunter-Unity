@@ -127,5 +127,24 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a6004b00135c09c43a35f139ee01cd3f, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::BoidAgent
-  _maxSpeed: 4
+  _maxHealth: 20
+  _currentHealth: 0
+  _bodyRenderer: {fileID: 0}
+  _maxSpeed: 3
   _maxSteering: 8
+  _viewRadius: 5
+  _detectedNeighbors: 0
+  _separationRadius: 2
+  _hunter: {fileID: 0}
+  _threatDetected: 0
+  _evadeWeight: 2
+  _slowingDistance: 3
+  _stopDistance: 1.2
+  _interestTarget: {fileID: 0}
+  _interactionRadius: 1.5
+  _interactionDamage: 5
+  _interactionInterval: 1
+  _isInteracting: 0
+  _separationWeight: 1.5
+  _alignmentWeight: 1
+  _cohesionWeight: 1
