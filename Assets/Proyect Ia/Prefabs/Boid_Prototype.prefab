@@ -143,7 +143,7 @@ MonoBehaviour:
   _interestTarget: {fileID: 0}
   _interactionRadius: 1.1
   _interactionDamage: 5
-  _interactionInterval: 1
+  _interactionInterval: 0.5
   _isInteracting: 0
   _separationWeight: 1.5
   _alignmentWeight: 1
