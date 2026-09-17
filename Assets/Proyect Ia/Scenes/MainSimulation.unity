@@ -228,12 +228,40 @@ PrefabInstance:
       value: 3
       objectReference: {fileID: 0}
     - target: {fileID: 6617000584310778442, guid: 0225a5f54cf1e74458936460ff163085, type: 3}
+      propertyPath: _viewRadius
+      value: 4
+      objectReference: {fileID: 0}
+    - target: {fileID: 6617000584310778442, guid: 0225a5f54cf1e74458936460ff163085, type: 3}
       propertyPath: _maxSteering
       value: 8
       objectReference: {fileID: 0}
     - target: {fileID: 6617000584310778442, guid: 0225a5f54cf1e74458936460ff163085, type: 3}
+      propertyPath: _sickColor.b
+      value: 0.3821423
+      objectReference: {fileID: 0}
+    - target: {fileID: 6617000584310778442, guid: 0225a5f54cf1e74458936460ff163085, type: 3}
+      propertyPath: _sickColor.g
+      value: 0.754717
+      objectReference: {fileID: 0}
+    - target: {fileID: 6617000584310778442, guid: 0225a5f54cf1e74458936460ff163085, type: 3}
+      propertyPath: _sickColor.r
+      value: 0.13171947
+      objectReference: {fileID: 0}
+    - target: {fileID: 6617000584310778442, guid: 0225a5f54cf1e74458936460ff163085, type: 3}
+      propertyPath: _sickDuration
+      value: 2
+      objectReference: {fileID: 0}
+    - target: {fileID: 6617000584310778442, guid: 0225a5f54cf1e74458936460ff163085, type: 3}
+      propertyPath: _stopDistance
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 6617000584310778442, guid: 0225a5f54cf1e74458936460ff163085, type: 3}
       propertyPath: _interestTarget
       value: 
+      objectReference: {fileID: 0}
+    - target: {fileID: 6617000584310778442, guid: 0225a5f54cf1e74458936460ff163085, type: 3}
+      propertyPath: _slowingDistance
+      value: 2
       objectReference: {fileID: 0}
     - target: {fileID: 6617000584310778442, guid: 0225a5f54cf1e74458936460ff163085, type: 3}
       propertyPath: _separationRadius
@@ -242,6 +270,10 @@ PrefabInstance:
     - target: {fileID: 6617000584310778442, guid: 0225a5f54cf1e74458936460ff163085, type: 3}
       propertyPath: _separationWeight
       value: 1.5
+      objectReference: {fileID: 0}
+    - target: {fileID: 6617000584310778442, guid: 0225a5f54cf1e74458936460ff163085, type: 3}
+      propertyPath: _interactionRadius
+      value: 1.1
       objectReference: {fileID: 0}
     - target: {fileID: 8035542890583203573, guid: 0225a5f54cf1e74458936460ff163085, type: 3}
       propertyPath: m_Name
@@ -644,12 +676,40 @@ PrefabInstance:
       value: 3
       objectReference: {fileID: 0}
     - target: {fileID: 6617000584310778442, guid: 0225a5f54cf1e74458936460ff163085, type: 3}
+      propertyPath: _viewRadius
+      value: 4
+      objectReference: {fileID: 0}
+    - target: {fileID: 6617000584310778442, guid: 0225a5f54cf1e74458936460ff163085, type: 3}
       propertyPath: _maxSteering
       value: 8
       objectReference: {fileID: 0}
     - target: {fileID: 6617000584310778442, guid: 0225a5f54cf1e74458936460ff163085, type: 3}
+      propertyPath: _sickColor.b
+      value: 0.3821423
+      objectReference: {fileID: 0}
+    - target: {fileID: 6617000584310778442, guid: 0225a5f54cf1e74458936460ff163085, type: 3}
+      propertyPath: _sickColor.g
+      value: 0.754717
+      objectReference: {fileID: 0}
+    - target: {fileID: 6617000584310778442, guid: 0225a5f54cf1e74458936460ff163085, type: 3}
+      propertyPath: _sickColor.r
+      value: 0.13171947
+      objectReference: {fileID: 0}
+    - target: {fileID: 6617000584310778442, guid: 0225a5f54cf1e74458936460ff163085, type: 3}
+      propertyPath: _sickDuration
+      value: 2
+      objectReference: {fileID: 0}
+    - target: {fileID: 6617000584310778442, guid: 0225a5f54cf1e74458936460ff163085, type: 3}
+      propertyPath: _stopDistance
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 6617000584310778442, guid: 0225a5f54cf1e74458936460ff163085, type: 3}
       propertyPath: _interestTarget
       value: 
+      objectReference: {fileID: 0}
+    - target: {fileID: 6617000584310778442, guid: 0225a5f54cf1e74458936460ff163085, type: 3}
+      propertyPath: _slowingDistance
+      value: 2
       objectReference: {fileID: 0}
     - target: {fileID: 6617000584310778442, guid: 0225a5f54cf1e74458936460ff163085, type: 3}
       propertyPath: _separationRadius
@@ -658,6 +718,10 @@ PrefabInstance:
     - target: {fileID: 6617000584310778442, guid: 0225a5f54cf1e74458936460ff163085, type: 3}
       propertyPath: _separationWeight
       value: 1.5
+      objectReference: {fileID: 0}
+    - target: {fileID: 6617000584310778442, guid: 0225a5f54cf1e74458936460ff163085, type: 3}
+      propertyPath: _interactionRadius
+      value: 1.1
       objectReference: {fileID: 0}
     - target: {fileID: 8035542890583203573, guid: 0225a5f54cf1e74458936460ff163085, type: 3}
       propertyPath: m_Name
@@ -743,7 +807,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 18db2556f7bcf604d80a76a958955673, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::HunterAgent
-  _speed: 4.5
+  _speed: 4
   _waypoints:
   - {fileID: 343673744}
   - {fileID: 634347747}
@@ -759,9 +823,10 @@ MonoBehaviour:
   _spawnInterval: 5
   _interestHeight: 0.125
   _spawnTimer: 0
-  _viewRadius: 8
+  _placementDuration: 1
+  _viewRadius: 7
   _tba: 1.5
-  _rangeAttackRadius: 6
+  _rangeAttackRadius: 5.5
   _meleeAttackRadius: 1.5
   _meleeDamage: 10
   _attackTimer: 0
@@ -937,12 +1002,40 @@ PrefabInstance:
       value: 3
       objectReference: {fileID: 0}
     - target: {fileID: 6617000584310778442, guid: 0225a5f54cf1e74458936460ff163085, type: 3}
+      propertyPath: _viewRadius
+      value: 4
+      objectReference: {fileID: 0}
+    - target: {fileID: 6617000584310778442, guid: 0225a5f54cf1e74458936460ff163085, type: 3}
       propertyPath: _maxSteering
       value: 8
       objectReference: {fileID: 0}
     - target: {fileID: 6617000584310778442, guid: 0225a5f54cf1e74458936460ff163085, type: 3}
+      propertyPath: _sickColor.b
+      value: 0.3821423
+      objectReference: {fileID: 0}
+    - target: {fileID: 6617000584310778442, guid: 0225a5f54cf1e74458936460ff163085, type: 3}
+      propertyPath: _sickColor.g
+      value: 0.754717
+      objectReference: {fileID: 0}
+    - target: {fileID: 6617000584310778442, guid: 0225a5f54cf1e74458936460ff163085, type: 3}
+      propertyPath: _sickColor.r
+      value: 0.13171947
+      objectReference: {fileID: 0}
+    - target: {fileID: 6617000584310778442, guid: 0225a5f54cf1e74458936460ff163085, type: 3}
+      propertyPath: _sickDuration
+      value: 2
+      objectReference: {fileID: 0}
+    - target: {fileID: 6617000584310778442, guid: 0225a5f54cf1e74458936460ff163085, type: 3}
+      propertyPath: _stopDistance
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 6617000584310778442, guid: 0225a5f54cf1e74458936460ff163085, type: 3}
       propertyPath: _interestTarget
       value: 
+      objectReference: {fileID: 0}
+    - target: {fileID: 6617000584310778442, guid: 0225a5f54cf1e74458936460ff163085, type: 3}
+      propertyPath: _slowingDistance
+      value: 2
       objectReference: {fileID: 0}
     - target: {fileID: 6617000584310778442, guid: 0225a5f54cf1e74458936460ff163085, type: 3}
       propertyPath: _separationRadius
@@ -951,6 +1044,10 @@ PrefabInstance:
     - target: {fileID: 6617000584310778442, guid: 0225a5f54cf1e74458936460ff163085, type: 3}
       propertyPath: _separationWeight
       value: 1.5
+      objectReference: {fileID: 0}
+    - target: {fileID: 6617000584310778442, guid: 0225a5f54cf1e74458936460ff163085, type: 3}
+      propertyPath: _interactionRadius
+      value: 1.1
       objectReference: {fileID: 0}
     - target: {fileID: 8035542890583203573, guid: 0225a5f54cf1e74458936460ff163085, type: 3}
       propertyPath: m_Name
@@ -1070,12 +1167,40 @@ PrefabInstance:
       value: 3
       objectReference: {fileID: 0}
     - target: {fileID: 6617000584310778442, guid: 0225a5f54cf1e74458936460ff163085, type: 3}
+      propertyPath: _viewRadius
+      value: 4
+      objectReference: {fileID: 0}
+    - target: {fileID: 6617000584310778442, guid: 0225a5f54cf1e74458936460ff163085, type: 3}
       propertyPath: _maxSteering
       value: 8
       objectReference: {fileID: 0}
     - target: {fileID: 6617000584310778442, guid: 0225a5f54cf1e74458936460ff163085, type: 3}
+      propertyPath: _sickColor.b
+      value: 0.3821423
+      objectReference: {fileID: 0}
+    - target: {fileID: 6617000584310778442, guid: 0225a5f54cf1e74458936460ff163085, type: 3}
+      propertyPath: _sickColor.g
+      value: 0.754717
+      objectReference: {fileID: 0}
+    - target: {fileID: 6617000584310778442, guid: 0225a5f54cf1e74458936460ff163085, type: 3}
+      propertyPath: _sickColor.r
+      value: 0.13171947
+      objectReference: {fileID: 0}
+    - target: {fileID: 6617000584310778442, guid: 0225a5f54cf1e74458936460ff163085, type: 3}
+      propertyPath: _sickDuration
+      value: 2
+      objectReference: {fileID: 0}
+    - target: {fileID: 6617000584310778442, guid: 0225a5f54cf1e74458936460ff163085, type: 3}
+      propertyPath: _stopDistance
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 6617000584310778442, guid: 0225a5f54cf1e74458936460ff163085, type: 3}
       propertyPath: _interestTarget
       value: 
+      objectReference: {fileID: 0}
+    - target: {fileID: 6617000584310778442, guid: 0225a5f54cf1e74458936460ff163085, type: 3}
+      propertyPath: _slowingDistance
+      value: 2
       objectReference: {fileID: 0}
     - target: {fileID: 6617000584310778442, guid: 0225a5f54cf1e74458936460ff163085, type: 3}
       propertyPath: _separationRadius
@@ -1084,6 +1209,10 @@ PrefabInstance:
     - target: {fileID: 6617000584310778442, guid: 0225a5f54cf1e74458936460ff163085, type: 3}
       propertyPath: _separationWeight
       value: 1.5
+      objectReference: {fileID: 0}
+    - target: {fileID: 6617000584310778442, guid: 0225a5f54cf1e74458936460ff163085, type: 3}
+      propertyPath: _interactionRadius
+      value: 1.1
       objectReference: {fileID: 0}
     - target: {fileID: 8035542890583203573, guid: 0225a5f54cf1e74458936460ff163085, type: 3}
       propertyPath: m_Name
@@ -1252,12 +1381,40 @@ PrefabInstance:
       value: 3
       objectReference: {fileID: 0}
     - target: {fileID: 6617000584310778442, guid: 0225a5f54cf1e74458936460ff163085, type: 3}
+      propertyPath: _viewRadius
+      value: 4
+      objectReference: {fileID: 0}
+    - target: {fileID: 6617000584310778442, guid: 0225a5f54cf1e74458936460ff163085, type: 3}
       propertyPath: _maxSteering
       value: 8
       objectReference: {fileID: 0}
     - target: {fileID: 6617000584310778442, guid: 0225a5f54cf1e74458936460ff163085, type: 3}
+      propertyPath: _sickColor.b
+      value: 0.3821423
+      objectReference: {fileID: 0}
+    - target: {fileID: 6617000584310778442, guid: 0225a5f54cf1e74458936460ff163085, type: 3}
+      propertyPath: _sickColor.g
+      value: 0.754717
+      objectReference: {fileID: 0}
+    - target: {fileID: 6617000584310778442, guid: 0225a5f54cf1e74458936460ff163085, type: 3}
+      propertyPath: _sickColor.r
+      value: 0.13171947
+      objectReference: {fileID: 0}
+    - target: {fileID: 6617000584310778442, guid: 0225a5f54cf1e74458936460ff163085, type: 3}
+      propertyPath: _sickDuration
+      value: 2
+      objectReference: {fileID: 0}
+    - target: {fileID: 6617000584310778442, guid: 0225a5f54cf1e74458936460ff163085, type: 3}
+      propertyPath: _stopDistance
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 6617000584310778442, guid: 0225a5f54cf1e74458936460ff163085, type: 3}
       propertyPath: _interestTarget
       value: 
+      objectReference: {fileID: 0}
+    - target: {fileID: 6617000584310778442, guid: 0225a5f54cf1e74458936460ff163085, type: 3}
+      propertyPath: _slowingDistance
+      value: 2
       objectReference: {fileID: 0}
     - target: {fileID: 6617000584310778442, guid: 0225a5f54cf1e74458936460ff163085, type: 3}
       propertyPath: _separationRadius
@@ -1266,6 +1423,10 @@ PrefabInstance:
     - target: {fileID: 6617000584310778442, guid: 0225a5f54cf1e74458936460ff163085, type: 3}
       propertyPath: _separationWeight
       value: 1.5
+      objectReference: {fileID: 0}
+    - target: {fileID: 6617000584310778442, guid: 0225a5f54cf1e74458936460ff163085, type: 3}
+      propertyPath: _interactionRadius
+      value: 1.1
       objectReference: {fileID: 0}
     - target: {fileID: 8035542890583203573, guid: 0225a5f54cf1e74458936460ff163085, type: 3}
       propertyPath: m_Name
@@ -1418,15 +1579,39 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 6617000584310778442, guid: 0225a5f54cf1e74458936460ff163085, type: 3}
       propertyPath: _viewRadius
-      value: 5
+      value: 4
       objectReference: {fileID: 0}
     - target: {fileID: 6617000584310778442, guid: 0225a5f54cf1e74458936460ff163085, type: 3}
       propertyPath: _maxSteering
       value: 8
       objectReference: {fileID: 0}
     - target: {fileID: 6617000584310778442, guid: 0225a5f54cf1e74458936460ff163085, type: 3}
+      propertyPath: _sickColor.b
+      value: 0.3821423
+      objectReference: {fileID: 0}
+    - target: {fileID: 6617000584310778442, guid: 0225a5f54cf1e74458936460ff163085, type: 3}
+      propertyPath: _sickColor.g
+      value: 0.754717
+      objectReference: {fileID: 0}
+    - target: {fileID: 6617000584310778442, guid: 0225a5f54cf1e74458936460ff163085, type: 3}
+      propertyPath: _sickColor.r
+      value: 0.13171947
+      objectReference: {fileID: 0}
+    - target: {fileID: 6617000584310778442, guid: 0225a5f54cf1e74458936460ff163085, type: 3}
+      propertyPath: _sickDuration
+      value: 2
+      objectReference: {fileID: 0}
+    - target: {fileID: 6617000584310778442, guid: 0225a5f54cf1e74458936460ff163085, type: 3}
+      propertyPath: _stopDistance
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 6617000584310778442, guid: 0225a5f54cf1e74458936460ff163085, type: 3}
       propertyPath: _interestTarget
       value: 
+      objectReference: {fileID: 0}
+    - target: {fileID: 6617000584310778442, guid: 0225a5f54cf1e74458936460ff163085, type: 3}
+      propertyPath: _slowingDistance
+      value: 2
       objectReference: {fileID: 0}
     - target: {fileID: 6617000584310778442, guid: 0225a5f54cf1e74458936460ff163085, type: 3}
       propertyPath: _separationRadius
@@ -1435,6 +1620,10 @@ PrefabInstance:
     - target: {fileID: 6617000584310778442, guid: 0225a5f54cf1e74458936460ff163085, type: 3}
       propertyPath: _separationWeight
       value: 1.5
+      objectReference: {fileID: 0}
+    - target: {fileID: 6617000584310778442, guid: 0225a5f54cf1e74458936460ff163085, type: 3}
+      propertyPath: _interactionRadius
+      value: 1.1
       objectReference: {fileID: 0}
     - target: {fileID: 8035542890583203573, guid: 0225a5f54cf1e74458936460ff163085, type: 3}
       propertyPath: m_Name

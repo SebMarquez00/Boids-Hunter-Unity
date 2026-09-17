@@ -17,6 +17,9 @@ public class BoidAgent : Agent
     [SerializeField] private Color _sickColor = new Color(0.15f, 0.7f, 0.55f, 1f);
     [SerializeField] private float _sickTimer;
 
+    public bool ThreatDetected => _threatDetected;
+    public InterestObject InterestTarget => _interestTarget;
+
     public bool IsSick => _sickTimer > 0f;
     public bool IsInteracting => _isInteracting;
     public float CurrentMaxSpeed => _maxSpeed * (IsSick ? _sickSpeedMultiplier : 1f);
@@ -32,8 +35,10 @@ public class BoidAgent : Agent
     [SerializeField] private float _maxSteering = 8f;
 
     [Header("Perception")]
-    [SerializeField] private float _viewRadius = 5f;
+    [SerializeField] private float _viewRadius = 4f;
     [SerializeField] private int _detectedNeighbors;
+    [SerializeField] private float _interestRadius = 3f;
+    [SerializeField] private float _escapeMargin = 1.5f;
 
     [Header("Flocking")]
     [SerializeField] private float _separationRadius = 2f;
@@ -45,13 +50,13 @@ public class BoidAgent : Agent
     private float _evadeWeight = 2f;
 
     [Header("Arrive")]
-    [SerializeField] private float _slowingDistance = 3f;
-    [SerializeField] private float _stopDistance = 1.2f;
+    [SerializeField] private float _slowingDistance = 2f;
+    [SerializeField] private float _stopDistance = .65f;
 
     [SerializeField] private InterestObject _interestTarget;
 
     [Header("Interaction")]
-    [SerializeField] private float _interactionRadius = 1.5f;
+    [SerializeField] private float _interactionRadius = 1.1f;
     [SerializeField] private float _interactionDamage = 5f;
     [SerializeField] private float _interactionInterval = 0.25f;
 
@@ -407,10 +412,11 @@ public class BoidAgent : Agent
             return false;
         }
 
-        return InRange(
-            _hunter.transform.position,
-            _viewRadius
-        );
+        // Entrar en peligro y salir usan radios distintos para evitar alternancias.
+        float radius = _viewRadius + (_threatDetected ? _escapeMargin : 0f);
+        Vector3 offset = _hunter.transform.position - transform.position;
+        offset.y = 0f;
+        return offset.sqrMagnitude <= radius * radius;
     }
     private void ReleaseInterestTarget()
     {
@@ -420,11 +426,22 @@ public class BoidAgent : Agent
         _isInteracting = false;
     }
 
+    private bool IsInterestSafe(InterestObject interest)
+    {
+        if (_hunter == null || !_hunter.isActiveAndEnabled) return true;
+        // No volver a un cebo que sigue junto al cazador.
+        Vector3 offset = interest.transform.position - _hunter.transform.position;
+        offset.y = 0f;
+        float safeRadius = _viewRadius + _escapeMargin;
+        return offset.sqrMagnitude > safeRadius * safeRadius;
+    }
+
     private void DetectInterestObject()
     {
         // Conservar la reserva mientras el objeto siga siendo un objetivo valido.
         if (_interestTarget != null && _interestTarget.IsAvailableFor(this)
-            && InRange(_interestTarget.transform.position, _viewRadius))
+            && InRange(_interestTarget.transform.position, _interestRadius)
+            && IsInterestSafe(_interestTarget))
         {
             return;
         }
@@ -436,7 +453,7 @@ public class BoidAgent : Agent
         foreach (InterestObject interest in InterestObject.AllObjects)
         {
             if (interest == null || !interest.IsAvailableFor(this)) continue;
-            if (!InRange(interest.transform.position, _viewRadius)) continue;
+            if (!InRange(interest.transform.position, _interestRadius) || !IsInterestSafe(interest)) continue;
 
             float distance = (interest.transform.position - transform.position).sqrMagnitude;
             if (distance < closestDistance)

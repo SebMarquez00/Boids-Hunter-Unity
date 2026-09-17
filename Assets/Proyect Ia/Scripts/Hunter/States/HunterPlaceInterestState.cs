@@ -4,6 +4,7 @@ public class HunterPlaceInterestState : State
 {
     private HunterAgent _agent;
     private float _timer;
+    public float Elapsed => _timer;
 
     public HunterPlaceInterestState(
         HunterAgent agent,

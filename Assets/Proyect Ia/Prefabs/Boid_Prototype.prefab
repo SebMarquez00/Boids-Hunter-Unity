@@ -132,16 +132,16 @@ MonoBehaviour:
   _bodyRenderer: {fileID: 0}
   _maxSpeed: 3
   _maxSteering: 8
-  _viewRadius: 5
+  _viewRadius: 4
   _detectedNeighbors: 0
   _separationRadius: 2
   _hunter: {fileID: 0}
   _threatDetected: 0
   _evadeWeight: 2
-  _slowingDistance: 3
-  _stopDistance: 1.2
+  _slowingDistance: 2
+  _stopDistance: 0.65
   _interestTarget: {fileID: 0}
-  _interactionRadius: 1.5
+  _interactionRadius: 1.1
   _interactionDamage: 5
   _interactionInterval: 1
   _isInteracting: 0
