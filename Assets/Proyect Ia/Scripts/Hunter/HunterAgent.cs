@@ -40,6 +40,11 @@ public class HunterAgent : Agent
     [SerializeField, Min(0f)] private float _placementDuration = 1f;
     public float PlacementDuration => _placementDuration;
 
+    // Datos de solo lectura para la interfaz.
+    public State CurrentState => _stateMachine.CurrentState;
+    public float GatherProgress => _gatherProgress;
+    public int InterestLimit => MaxInterestObjects;
+
     public float GatherRadius => _gatherRadius;
     public float GatherDuration => _gatherDuration;
 
@@ -51,11 +56,11 @@ public class HunterAgent : Agent
         _waypointCheckDistance;
 
     [Header("Perception")]
-    [SerializeField] private float _viewRadius = 8f;
+    [SerializeField] private float _viewRadius = 7f;
 
     [Header("Attack")]
     [SerializeField] private float _tba = 1.5f;
-    [SerializeField] private float _rangeAttackRadius = 6f;
+    [SerializeField] private float _rangeAttackRadius = 5.5f;
     [SerializeField] private float _meleeAttackRadius = 1.5f;
 
     [SerializeField] private float _meleeDamage = 10f;
