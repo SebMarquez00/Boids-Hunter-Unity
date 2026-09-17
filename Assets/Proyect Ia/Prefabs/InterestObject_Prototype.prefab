@@ -125,6 +125,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 2c62c2a5dcfa09d46b3131e3284ad8cb, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::InterestObject
-  _maxHealth: 1
+  _maxHealth: 10
   _currentHealth: 0
   _reservedBy: {fileID: 0}

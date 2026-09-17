@@ -93,10 +93,7 @@ public class BoidAgent : Agent
 
         _allAgents.Add(this);
 
-        if (_bodyRenderer != null)
-        {
-            _bodyRenderer.material.color = _originalColor;
-        }
+        SetColor(_originalColor);
     }
 
     private void OnDisable()
@@ -161,6 +158,12 @@ public class BoidAgent : Agent
         }
         else if (_interestTarget != null)
         {
+            if (_isInteracting)
+            {
+                UpdateInteraction();
+                return;
+            }
+
             _velocity += Arrive(_interestTarget.transform.position)
                        + CalculateSeparation() * _separationWeight;
         }
@@ -253,18 +256,20 @@ public class BoidAgent : Agent
 
         return direction.sqrMagnitude <= radius * radius;
     }
+    private bool IsNeighbor(BoidAgent agent, float radius)
+    {
+        return agent != this
+            && agent.IsAlive
+            && InRange(agent.transform.position, radius);
+    }
+
     private void DetectNeighbors()
     {
         _detectedNeighbors = 0;
 
         foreach (BoidAgent agent in _allAgents)
         {
-            if (agent == this || !agent.IsAlive)
-            {
-                continue;
-            }
-
-            if (InRange(agent.transform.position, _viewRadius))
+            if (IsNeighbor(agent, _viewRadius))
             {
                 _detectedNeighbors++;
             }
@@ -277,12 +282,7 @@ public class BoidAgent : Agent
 
         foreach (BoidAgent agent in _allAgents)
         {
-            if (agent == this || !agent.IsAlive)
-            {
-                continue;
-            }
-
-            if (InRange(agent.transform.position, _separationRadius))
+            if (IsNeighbor(agent, _separationRadius))
             {
                 Vector3 direction =
                     transform.position - agent.transform.position;
@@ -317,12 +317,7 @@ public class BoidAgent : Agent
 
         foreach (BoidAgent agent in _allAgents)
         {
-            if (agent == this || !agent.IsAlive)
-            {
-                continue;
-            }
-
-            if (InRange(agent.transform.position, _viewRadius))
+            if (IsNeighbor(agent, _viewRadius))
             {
                 desired += agent.Velocity;
                 count++;
@@ -347,12 +342,7 @@ public class BoidAgent : Agent
 
         foreach (BoidAgent agent in _allAgents)
         {
-            if (agent == this || !agent.IsAlive)
-            {
-                continue;
-            }
-
-            if (InRange(agent.transform.position, _viewRadius))
+            if (IsNeighbor(agent, _viewRadius))
             {
                 desiredPosition += agent.transform.position;
                 count++;
@@ -426,22 +416,11 @@ public class BoidAgent : Agent
         _isInteracting = false;
     }
 
-    private bool IsInterestSafe(InterestObject interest)
-    {
-        if (_hunter == null || !_hunter.isActiveAndEnabled) return true;
-        // No volver a un cebo que sigue junto al cazador.
-        Vector3 offset = interest.transform.position - _hunter.transform.position;
-        offset.y = 0f;
-        float safeRadius = _viewRadius + _escapeMargin;
-        return offset.sqrMagnitude > safeRadius * safeRadius;
-    }
-
     private void DetectInterestObject()
     {
         // Conservar la reserva mientras el objeto siga siendo un objetivo valido.
         if (_interestTarget != null && _interestTarget.IsAvailableFor(this)
-            && InRange(_interestTarget.transform.position, _interestRadius)
-            && IsInterestSafe(_interestTarget))
+            && InRange(_interestTarget.transform.position, _interestRadius))
         {
             return;
         }
@@ -453,7 +432,7 @@ public class BoidAgent : Agent
         foreach (InterestObject interest in InterestObject.AllObjects)
         {
             if (interest == null || !interest.IsAvailableFor(this)) continue;
-            if (!InRange(interest.transform.position, _interestRadius) || !IsInterestSafe(interest)) continue;
+            if (!InRange(interest.transform.position, _interestRadius)) continue;
 
             float distance = (interest.transform.position - transform.position).sqrMagnitude;
             if (distance < closestDistance)
@@ -486,15 +465,20 @@ public class BoidAgent : Agent
             return;
         }
 
-        if (!InRange(
-            _interestTarget.transform.position,
-            _interactionRadius
-        ))
+        Vector3 targetPosition = _interestTarget.transform.position;
+        targetPosition.y = transform.position.y;
+
+        // Detenerse junto al cebo, sin superponerse con el objeto.
+        if (Vector3.Distance(transform.position, targetPosition) > Mathf.Min(_interactionRadius, _stopDistance + 0.05f))
         {
             _interactionTimer = 0f;
             return;
         }
 
+        Vector3 offset = transform.position - targetPosition;
+        if (offset.sqrMagnitude < 0.001f) offset = -transform.forward;
+        transform.position = targetPosition + offset.normalized * _stopDistance;
+        _velocity = Vector3.zero;
         _isInteracting = true;
 
         _interactionTimer += Time.deltaTime;
@@ -508,14 +492,24 @@ public class BoidAgent : Agent
             {
                 ReleaseInterestTarget();
                 BecomeSick();
+                // Retomar la marcha incluso si no hay vecinos cerca.
+                _velocity = transform.forward * CurrentMaxSpeed;
             }
         }
     }
+    private void SetColor(Color color)
+    {
+        if (_bodyRenderer != null)
+        {
+            _bodyRenderer.material.color = color;
+        }
+    }
+
     private void BecomeSick()
     {
         _sickTimer = _sickDuration;
         _velocity = Vector3.ClampMagnitude(_velocity, CurrentMaxSpeed);
-        if (_bodyRenderer != null) _bodyRenderer.material.color = _sickColor;
+        SetColor(_sickColor);
     }
 
     private void UpdateSickness()
@@ -523,9 +517,9 @@ public class BoidAgent : Agent
         if (!IsSick) return;
 
         _sickTimer = Mathf.Max(0f, _sickTimer - Time.deltaTime);
-        if (!IsSick && _bodyRenderer != null)
+        if (!IsSick)
         {
-            _bodyRenderer.material.color = _originalColor;
+            SetColor(_originalColor);
         }
     }
 
@@ -570,17 +564,10 @@ public class BoidAgent : Agent
         _sickTimer = 0f;
         _velocity = Vector3.zero;
 
-        _interactionTimer = 0f;
-        _isInteracting = false;
-
         _threatDetected = false;
-        _interestTarget = null;
         _detectedNeighbors = 0;
 
-        if (_bodyRenderer != null)
-        {
-            _bodyRenderer.material.color = Color.red;
-        }
+        SetColor(Color.red);
     }
     [ContextMenu("Debug/Recibir 5 de dano")]
     private void DebugTakeDamage()

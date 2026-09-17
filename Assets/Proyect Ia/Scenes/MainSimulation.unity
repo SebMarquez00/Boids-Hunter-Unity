@@ -824,9 +824,9 @@ MonoBehaviour:
   _interestHeight: 0.125
   _spawnTimer: 0
   _placementDuration: 1
-  _viewRadius: 7
+  _viewRadius: 5
   _tba: 1.5
-  _rangeAttackRadius: 5.5
+  _rangeAttackRadius: 3.5
   _meleeAttackRadius: 1.5
   _meleeDamage: 10
   _attackTimer: 0
