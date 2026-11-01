@@ -31,7 +31,7 @@ public class HunterPlaceInterestState : State
         if (_timer < _agent.PlacementDuration) return;
 
         _agent.PlaceInterestObject();
-        _stateMachine.ChangeState(HunterStates.Patrol);
+        _stateMachine.ChangeState(_agent.ReturnState);
     }
 
     public override void Exit()

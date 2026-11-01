@@ -11,6 +11,7 @@ public class HunterAttackState : State
 
     public override void Enter()
     {
+        if (_agent.UsesNavigation) _agent.SetTarget(_agent.FindClosestAliveBoid());
         Debug.Log("Hunter: Attack");
     }
 
@@ -25,7 +26,7 @@ public class HunterAttackState : State
         BoidAgent target = _agent.Target;
         if (!_agent.ProjectileHit && target != null && target.IsAlive && _agent.CanSee(target)) return false;
 
-        _stateMachine.ChangeState(HunterStates.Patrol);
+        _stateMachine.ChangeState(_agent.ReturnState);
         return true;
     }
 
@@ -43,7 +44,7 @@ public class HunterAttackState : State
         if (distance <= _agent.MeleeAttackRadius)
         {
             _agent.Stop();
-            if (_agent.TryMeleeAttack()) _stateMachine.ChangeState(HunterStates.Patrol);
+            if (_agent.TryMeleeAttack()) _stateMachine.ChangeState(_agent.ReturnState);
         }
         else if (distance <= _agent.RangeAttackRadius)
         {

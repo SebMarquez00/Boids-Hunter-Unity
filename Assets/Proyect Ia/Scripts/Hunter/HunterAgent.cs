@@ -6,7 +6,8 @@ public enum HunterStates
     Patrol,
     Attack,
     Gather,
-    PlaceInterest
+    PlaceInterest,
+    Search
 }
 
 public class HunterAgent : Agent
@@ -14,6 +15,10 @@ public class HunterAgent : Agent
     [Header("Movement")]
     [SerializeField] private float _speed = 4.5f;
     [SerializeField, Min(0f)] private float _maxPredictionTime = 1f;
+
+    [Header("Scenario Navigation")]
+    [SerializeField] private AgentNavigator _navigation;
+    [SerializeField] private ScenarioReferences _scenario;
 
     [Header("Patrol")]
     [SerializeField] private List<Transform> _waypoints = new List<Transform>();
@@ -76,6 +81,15 @@ public class HunterAgent : Agent
     public BoidAgent Target => _target;
     public bool HasActiveProjectile => _combat != null && _combat.HasActiveProjectile;
     public bool ProjectileHit => _combat != null && _combat.ProjectileHit;
+    public bool UsesNavigation => _navigation != null && _scenario != null;
+    public AgentNavigator Navigation => _navigation;
+    public ScenarioReferences Scenario => _scenario;
+    public HunterStates InitialState => UsesNavigation ? HunterStates.Search : HunterStates.Patrol;
+    public HunterStates ReturnState => InitialState;
+    public bool IsInHuntingGround => _scenario != null && _scenario.HuntingZone != null
+        && _scenario.HuntingZone.Contains(transform.position);
+    public LayerMask ObstacleMask => UsesNavigation && _navigation.Follower != null
+        && _navigation.Follower.Graph != null ? _navigation.Follower.Graph.ObstacleMask : (LayerMask)0;
 
     private void Awake()
     {
@@ -111,13 +125,15 @@ public class HunterAgent : Agent
         _stateMachine.RegisterState(HunterStates.Attack, new HunterAttackState(this, _stateMachine));
         _stateMachine.RegisterState(HunterStates.Gather, new HunterGatherState(this, _stateMachine));
         _stateMachine.RegisterState(HunterStates.PlaceInterest, new HunterPlaceInterestState(this, _stateMachine));
-        _stateMachine.ChangeState(HunterStates.Patrol);
+        _stateMachine.RegisterState(HunterStates.Search, new HunterSearchState(this, _stateMachine));
+        _stateMachine.ChangeState(InitialState);
     }
 
     private void UpdateTimers()
     {
         _attackTimer += Time.deltaTime;
-        _spawnTimer += Time.deltaTime;
+        if (!UsesNavigation || IsInHuntingGround)
+            _spawnTimer += Time.deltaTime;
     }
 
     private void UpdatePerception()
@@ -133,7 +149,33 @@ public class HunterAgent : Agent
 
     public void MoveTowards(Vector3 targetPosition)
     {
+        if (UsesNavigation)
+        {
+            NavigateTo(targetPosition);
+            return;
+        }
         _velocity = _movement.MoveTowards(targetPosition, _speed, Time.deltaTime);
+    }
+
+    public void NavigateTo(Vector3 targetPosition)
+    {
+        if (!UsesNavigation)
+        {
+            MoveTowards(targetPosition);
+            return;
+        }
+        _navigation.NavigateTo(targetPosition, _speed, Time.deltaTime);
+        _velocity = _navigation.Velocity;
+    }
+
+    public void ApproachTarget(BoidAgent target)
+    {
+        if (!CanSee(target))
+        {
+            Stop();
+            return;
+        }
+        MoveToVisibleTarget(target.transform.position, target.transform.position);
     }
 
     public void Pursue(BoidAgent target)
@@ -146,7 +188,28 @@ public class HunterAgent : Agent
 
         Vector3 futurePosition = _movement.PredictPosition(target.transform.position, target.Velocity,
             _speed, _maxPredictionTime);
-        MoveTowards(futurePosition);
+        MoveToVisibleTarget(futurePosition, target.transform.position);
+    }
+
+    private void MoveToVisibleTarget(Vector3 preferredPosition, Vector3 currentTargetPosition)
+    {
+        if (!UsesNavigation)
+        {
+            MoveTowards(preferredPosition);
+            return;
+        }
+        NavigationGraph graph = _navigation.Follower != null ? _navigation.Follower.Graph : null;
+        if (graph != null && graph.CanTraverse(transform.position, preferredPosition, NavigationAccess.Hunter))
+            MoveDirectly(preferredPosition);
+        else if (graph != null && graph.CanTraverse(transform.position, currentTargetPosition, NavigationAccess.Hunter))
+            MoveDirectly(currentTargetPosition);
+        else NavigateTo(currentTargetPosition);
+    }
+
+    private void MoveDirectly(Vector3 targetPosition)
+    {
+        _navigation.Stop();
+        _velocity = _movement.MoveTowards(targetPosition, _speed, Time.deltaTime, _navigation.TurnSpeed);
     }
 
     public float DistanceTo(Vector3 position)
@@ -156,17 +219,17 @@ public class HunterAgent : Agent
 
     public bool CanSee(BoidAgent agent)
     {
-        return _perception.CanSee(agent, transform.position, _viewRadius);
+        return _perception.CanSee(agent, transform.position, _viewRadius, ObstacleMask);
     }
 
     public BoidAgent FindClosestAliveBoid()
     {
-        return _perception.FindClosestBoid(transform.position, _viewRadius, true);
+        return _perception.FindClosestBoid(transform.position, _viewRadius, true, ObstacleMask);
     }
 
     public BoidAgent FindClosestDeadBoid()
     {
-        return _perception.FindClosestBoid(transform.position, _viewRadius, false);
+        return _perception.FindClosestBoid(transform.position, _viewRadius, false, ObstacleMask);
     }
 
     public void SetTarget(BoidAgent target)
@@ -209,6 +272,7 @@ public class HunterAgent : Agent
 
     public bool CanPlaceInterestObject()
     {
+        if (UsesNavigation && !IsInHuntingGround) return false;
         if (_interestPrefab == null || _spawnTimer < Mathf.Max(0.1f, _spawnInterval)) return false;
         if (InterestObject.ActiveCount >= MaxInterestObjects) return false;
 
@@ -227,6 +291,7 @@ public class HunterAgent : Agent
 
     public void Stop()
     {
+        if (_navigation != null) _navigation.Stop();
         _velocity = Vector3.zero;
     }
 
