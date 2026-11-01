@@ -7,7 +7,8 @@ public enum HunterStates
     Attack,
     Gather,
     PlaceInterest,
-    Search
+    Search,
+    Dead
 }
 
 public class HunterAgent : Agent
@@ -19,6 +20,11 @@ public class HunterAgent : Agent
     [Header("Scenario Navigation")]
     [SerializeField] private AgentNavigator _navigation;
     [SerializeField] private ScenarioReferences _scenario;
+
+    [Header("Respawn")]
+    [SerializeField, Min(0f)] private float _respawnTime = 5f;
+    private bool _captureRequested;
+    private int _gatherCount;
 
     [Header("Patrol")]
     [SerializeField] private List<Transform> _waypoints = new List<Transform>();
@@ -64,6 +70,7 @@ public class HunterAgent : Agent
     private HunterPerception _perception;
     private HunterMovement _movement;
     private HunterCombat _combat;
+    private HunterLife _life;
 
     // Datos de solo lectura utilizados por los estados y la interfaz.
     public State CurrentState => _stateMachine?.CurrentState;
@@ -77,13 +84,22 @@ public class HunterAgent : Agent
     public float TBA => _tba;
     public float RangeAttackRadius => _rangeAttackRadius;
     public float MeleeAttackRadius => _meleeAttackRadius;
-    public bool CanAttack => _attackTimer >= TBA;
+    public bool CanAttack => !IsDead && !_captureRequested && _attackTimer >= TBA;
     public BoidAgent Target => _target;
     public bool HasActiveProjectile => _combat != null && _combat.HasActiveProjectile;
     public bool ProjectileHit => _combat != null && _combat.ProjectileHit;
     public bool UsesNavigation => _navigation != null && _scenario != null;
     public AgentNavigator Navigation => _navigation;
     public ScenarioReferences Scenario => _scenario;
+    public float MovementSpeed => Mathf.Max(0f, _speed);
+    public bool IsDead => CurrentState is HunterDeadState;
+    public bool IsAvailableToWolves => isActiveAndEnabled && !IsDead && !_captureRequested;
+    public bool IsInSafeZone => _scenario != null && _scenario.ContainsSafeZone(transform.position);
+    public float RespawnTime => Mathf.Max(0f, _respawnTime);
+    public float RespawnRemaining => CurrentState is HunterDeadState dead ? Mathf.Max(0f, RespawnTime - dead.Elapsed) : 0f;
+    public int GatherCount => _gatherCount;
+    public int DeathCount { get; private set; }
+    public int RespawnCount { get; private set; }
     public HunterStates InitialState => UsesNavigation ? HunterStates.Search : HunterStates.Patrol;
     public HunterStates ReturnState => InitialState;
     public bool IsInHuntingGround => _scenario != null && _scenario.HuntingZone != null
@@ -115,6 +131,7 @@ public class HunterAgent : Agent
         _perception = new HunterPerception();
         _movement = new HunterMovement(transform);
         _combat = new HunterCombat(this);
+        _life = new HunterLife(transform);
         InitializeStateMachine();
     }
 
@@ -126,11 +143,14 @@ public class HunterAgent : Agent
         _stateMachine.RegisterState(HunterStates.Gather, new HunterGatherState(this, _stateMachine));
         _stateMachine.RegisterState(HunterStates.PlaceInterest, new HunterPlaceInterestState(this, _stateMachine));
         _stateMachine.RegisterState(HunterStates.Search, new HunterSearchState(this, _stateMachine));
+        _stateMachine.RegisterState(HunterStates.Dead, new HunterDeadState(this, _stateMachine));
+        _stateMachine.RegisterGlobalTransition(HunterStates.Dead, () => _captureRequested && !IsDead);
         _stateMachine.ChangeState(InitialState);
     }
 
     private void UpdateTimers()
     {
+        if (IsDead || _captureRequested) return;
         _attackTimer += Time.deltaTime;
         if (!UsesNavigation || IsInHuntingGround)
             _spawnTimer += Time.deltaTime;
@@ -138,6 +158,7 @@ public class HunterAgent : Agent
 
     private void UpdatePerception()
     {
+        if (IsDead || _captureRequested) return;
         _perception.Update(transform.position, _viewRadius, InterestSpacing, _perceptionMask,
             _perceptionInterval, Time.deltaTime);
     }
@@ -272,6 +293,7 @@ public class HunterAgent : Agent
 
     public bool CanPlaceInterestObject()
     {
+        if (IsDead || _captureRequested) return false;
         if (UsesNavigation && !IsInHuntingGround) return false;
         if (_interestPrefab == null || _spawnTimer < Mathf.Max(0.1f, _spawnInterval)) return false;
         if (InterestObject.ActiveCount >= MaxInterestObjects) return false;
@@ -293,6 +315,42 @@ public class HunterAgent : Agent
     {
         if (_navigation != null) _navigation.Stop();
         _velocity = Vector3.zero;
+    }
+
+    public bool RequestCapture()
+    {
+        if (!UsesNavigation || !IsAvailableToWolves || IsInSafeZone) return false;
+        // El lobo comunica el hecho; la transición se resuelve al actualizar la FSM.
+        _captureRequested = true;
+        return true;
+    }
+
+    public void EnterDead()
+    {
+        Stop();
+        ClearProjectile();
+        SetTarget(null);
+        SetGatherProgress(0f);
+        _captureRequested = false;
+        _life.Hide();
+        DeathCount++;
+    }
+
+    public void Respawn()
+    {
+        Stop();
+        if (_scenario != null && _scenario.HunterSpawn != null)
+            transform.SetPositionAndRotation(_scenario.HunterSpawn.position, _scenario.HunterSpawn.rotation);
+        _gatherCount = 0;
+        _attackTimer = _spawnTimer = 0f;
+        _perception = new HunterPerception();
+        _life.Restore();
+        RespawnCount++;
+    }
+
+    public void RegisterGather()
+    {
+        if (!IsDead && !_captureRequested) _gatherCount++;
     }
 
     private void OnDrawGizmosSelected()

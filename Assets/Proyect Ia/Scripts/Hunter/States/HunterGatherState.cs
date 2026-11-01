@@ -42,7 +42,11 @@ public class HunterGatherState : State
         _agent.SetGatherProgress(_timer);
         if (_timer < _agent.GatherDuration) return;
 
-        if (target.Collect()) Debug.Log("Hunter: recoleccion completada");
+        if (target.Collect())
+        {
+            _agent.RegisterGather();
+            Debug.Log("Hunter: recoleccion completada");
+        }
         _stateMachine.ChangeState(_agent.ReturnState);
     }
 

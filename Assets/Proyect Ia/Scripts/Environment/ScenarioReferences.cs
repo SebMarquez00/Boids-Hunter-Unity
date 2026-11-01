@@ -18,4 +18,11 @@ public class ScenarioReferences : MonoBehaviour
     public Transform HunterSpawn => _hunterSpawn;
     public WorldBounds HuntingBounds => _huntingBounds;
     public IReadOnlyList<BoidAgent> Boids => _boids;
+
+    public bool ContainsSafeZone(Vector3 position)
+    {
+        foreach (ScenarioZone zone in _safeZones)
+            if (zone != null && zone.Contains(position)) return true;
+        return false;
+    }
 }
