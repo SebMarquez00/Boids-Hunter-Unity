@@ -12,6 +12,7 @@ public static class BlockOneValidation
     private const int TestMask = 1 << TestLayer;
     private static readonly Vector3 Origin = new Vector3(10000f, 10000f, 10000f);
     private static readonly List<GameObject> Created = new List<GameObject>();
+    private static readonly List<Material> CreatedMaterials = new List<Material>();
     private static int _checks;
 
     [MenuItem("Tools/IA/Validar bloque 1")]
@@ -29,7 +30,8 @@ public static class BlockOneValidation
             // HideAndDontSave retira colliders de la escena fisica: usamos una escena desechable.
             temporaryScene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Additive);
             SceneManager.SetActiveScene(temporaryScene);
-            Action[] tests = { ValidateProximity, ValidateBoidPerception, ValidateHunterPerception, ValidateBounds };
+            Action[] tests = { ValidateProximity, ValidateBoidPerception, ValidateHunterPerception,
+                ValidateBounds, ValidateHealth, ValidateColors, ValidateInteraction };
             foreach (Action test in tests)
             {
                 try { test(); }
@@ -66,7 +68,7 @@ public static class BlockOneValidation
         Check(results.Count == 1, "Dos colliders del mismo componente no deben duplicar el candidato.");
         for (int i = 0; i < 24; i++) CreateObject("Candidato " + i, new Vector3(0f, 0f, i * 0.02f));
         Scan(sensor, results, 2f);
-        Check(results.Count == 25, "El buffer debe crecer sin perder candidatos cuando supera 16 colliders.");
+        Check(results.Count == 25, "La consulta debe recuperar los 25 candidatos sin duplicarlos.");
 
         target.SetActive(false);
         sensor.GetDetected(results);
@@ -154,6 +156,93 @@ public static class BlockOneValidation
         Check(bounds.OutOfBounds(center) == center, "El centro del coto debe permanecer dentro de los bounds.");
     }
 
+    private static void ValidateHealth()
+    {
+        BoidHealth health = new BoidHealth();
+        health.Reset(20f);
+        Check(health.IsAlive && !health.IsSick && health.CurrentHealth == 20f, "Reaparecer debe restaurar vida y quitar enfermedad.");
+        health.TakeDamage(-5f);
+        health.TakeDamage(0f);
+        Check(health.CurrentHealth == 20f, "El dano nulo o negativo no debe modificar la vida.");
+        Check(!health.TakeDamage(5f) && health.CurrentHealth == 15f, "Un golpe no letal debe descontar vida sin informar muerte.");
+        health.BecomeSick(5f);
+        Check(health.IsSick && Mathf.Approximately(health.GetMaxSpeed(3f, 0.35f), 1.05f),
+            "La enfermedad debe aplicar la velocidad reducida configurada.");
+        health.Tick(4f);
+        Check(health.IsSick, "La enfermedad debe durar el tiempo configurado.");
+        health.Tick(1f);
+        Check(!health.IsSick && health.GetMaxSpeed(3f, 0.35f) == 3f, "Al recuperarse debe volver la velocidad normal.");
+        health.BecomeSick(5f);
+        Check(health.TakeDamage(100f) && !health.IsAlive && !health.IsSick && health.CurrentHealth == 0f,
+            "La muerte debe limitar vida a cero y cancelar la enfermedad.");
+        Check(!health.TakeDamage(1f), "Golpear un Boid muerto no debe informar otra muerte.");
+        health.Reset(20f);
+        Check(health.IsAlive && !health.IsSick, "El mismo Boid debe poder iniciar otro ciclo despues de morir.");
+    }
+
+    private static void ValidateColors()
+    {
+        GameObject body = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        Created.Add(body);
+        body.transform.position = Origin;
+        Renderer renderer = body.GetComponent<Renderer>();
+        Material material = new Material(renderer.sharedMaterial) { hideFlags = HideFlags.HideAndDontSave };
+        CreatedMaterials.Add(material);
+        material.color = Color.blue;
+        renderer.sharedMaterial = material;
+        BoidFeedback feedback = new BoidFeedback(material);
+
+        feedback.Refresh(true, false, Color.green);
+        Check(renderer.sharedMaterial.color == Color.blue, "Un Boid sano debe conservar su color original.");
+        feedback.Refresh(true, true, Color.green);
+        Check(renderer.sharedMaterial.color == Color.green, "La enfermedad debe mostrar su color configurado.");
+        feedback.Refresh(false, true, Color.green);
+        Check(renderer.sharedMaterial.color == Color.red, "El color de muerte debe tener prioridad sobre enfermedad.");
+        feedback.Refresh(true, false, Color.green);
+        Check(renderer.sharedMaterial.color == Color.blue, "La recuperacion o reaparicion debe restaurar el color original.");
+    }
+
+    private static void ValidateInteraction()
+    {
+        BoidAgent owner = CreateBoid("Reserva A", Vector3.zero);
+        BoidAgent other = CreateBoid("Reserva B", Vector3.right * 2f);
+        InterestObject interest = CreateObject("Interes", Vector3.forward * 0.5f).AddComponent<InterestObject>();
+        // Inicializa el objeto sin incrementar manualmente el contador global de OnEnable.
+        interest.SendMessage("Initialize");
+        BoidPerception perception = new BoidPerception();
+        BoidMovement movement = new BoidMovement(owner.transform);
+        BoidInteraction interaction = new BoidInteraction(owner, movement);
+        Refresh(perception, owner);
+        interaction.UpdateTarget(perception, 3f, false);
+        Check(interaction.Target == interest && interest.ReservedBy == owner,
+            "Un Boid debe adquirir y reservar el interes que percibe localmente.");
+        Check(!interest.TryReserve(other) && !interest.Consume(other, 1f),
+            "Un segundo Boid no debe reservar ni consumir el objeto reservado.");
+        interaction.Tick(1.1f, 0.65f, 1f, 10f, 0.1f);
+        Check(interaction.IsInteracting && movement.Velocity == Vector3.zero,
+            "Al interactuar dentro del radio el Boid debe detenerse junto al objeto.");
+
+        interaction.UpdateTarget(perception, 3f, true);
+        Check(interaction.Target == null && !interaction.IsInteracting && interest.ReservedBy == null,
+            "Una amenaza debe cancelar la interaccion y liberar la reserva.");
+        Check(interest.TryReserve(other), "El objeto liberado debe quedar disponible para otro Boid.");
+        interest.Release(other);
+
+        interaction.UpdateTarget(perception, 3f, false);
+        owner.TakeDamage(float.MaxValue);
+        interaction.Tick(1.1f, 0.65f, 1f, 10f, 0f);
+        Check(interaction.Target == null && !interaction.IsInteracting && interest.ReservedBy == null,
+            "La muerte del propietario debe cancelar la interaccion sin dejar reserva.");
+
+        owner.SendMessage("OnEnable");
+        interaction.UpdateTarget(perception, 3f, false);
+        Check(interest.ReservedBy == owner, "Tras reiniciarse el Boid debe poder reservar nuevamente.");
+        owner.gameObject.SetActive(false);
+        interaction.Tick(1.1f, 0.65f, 1f, 10f, 0f);
+        Check(interaction.Target == null && !interaction.IsInteracting && interest.ReservedBy == null,
+            "Desactivar al propietario debe cancelar la interaccion y liberar el objeto.");
+    }
+
     private static GameObject CreateObject(string name, Vector3 offset)
     {
         GameObject created = new GameObject("Validacion IA - " + name);
@@ -167,11 +256,9 @@ public static class BlockOneValidation
     private static BoidAgent CreateBoid(string name, Vector3 offset, bool alive = true)
     {
         BoidAgent boid = CreateObject(name, offset).AddComponent<BoidAgent>();
-        using (SerializedObject data = new SerializedObject(boid))
-        {
-            data.FindProperty("_currentHealth").floatValue = alive ? 20f : 0f;
-            data.ApplyModifiedPropertiesWithoutUndo();
-        }
+        boid.SendMessage("Awake");
+        boid.SendMessage("OnEnable");
+        if (!alive) boid.TakeDamage(float.MaxValue);
         return boid;
     }
 
@@ -199,6 +286,9 @@ public static class BlockOneValidation
         for (int i = Created.Count - 1; i >= 0; i--)
             if (Created[i] != null) Object.DestroyImmediate(Created[i]);
         Created.Clear();
+        foreach (Material material in CreatedMaterials)
+            if (material != null) Object.DestroyImmediate(material);
+        CreatedMaterials.Clear();
         Physics.SyncTransforms();
     }
 }

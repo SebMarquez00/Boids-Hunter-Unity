@@ -42,7 +42,11 @@ public class SimulationUI : MonoBehaviour
         _boids = boids ?? System.Array.Empty<BoidAgent>();
         _camera = sceneCamera;
         _canvas = (RectTransform)transform;
-        if (_camera == null || _hunter == null) { enabled = false; return; }
+        if (_camera == null || _hunter == null)
+        {
+            enabled = false;
+            return;
+        }
         _originalRect = _camera.rect;
         _originalSize = _camera.orthographicSize;
         CreateBackgroundCamera();
@@ -113,10 +117,27 @@ public class SimulationUI : MonoBehaviour
             Sprite icon = FlockIcon;
             string label = "";
             Color color = _cyan;
-            if (!boid.IsAlive) { icon = DeadIcon; color = _red; }
-            else if (boid.ThreatDetected) { icon = EvadeIcon; label = ""; }
-            else if (boid.InterestTarget != null) { icon = BaitIcon; color = new Color(1f, .83f, .38f); }
-            if (boid.IsAlive && boid.IsSick) { color = _green; if (!boid.ThreatDetected) icon = SickIcon; }
+            if (!boid.IsAlive)
+            {
+                icon = DeadIcon;
+                color = _red;
+            }
+            else if (boid.ThreatDetected)
+            {
+                icon = EvadeIcon;
+                label = "";
+            }
+            else if (boid.InterestTarget != null)
+            {
+                icon = BaitIcon;
+                color = new Color(1f, .83f, .38f);
+            }
+
+            if (boid.IsAlive && boid.IsSick)
+            {
+                color = _green;
+                if (!boid.ThreatDetected) icon = SickIcon;
+            }
             _badges[i].Refresh(_camera, _canvas, icon, label, color, _showIcons && active);
         }
     }
@@ -169,6 +190,10 @@ public class SimulationUI : MonoBehaviour
 
     private void OnDestroy()
     {
-        if (_camera != null) { _camera.rect = _originalRect; _camera.orthographicSize = _originalSize; }
+        if (_camera != null)
+        {
+            _camera.rect = _originalRect;
+            _camera.orthographicSize = _originalSize;
+        }
     }
 }

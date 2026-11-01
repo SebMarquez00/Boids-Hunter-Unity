@@ -5,8 +5,7 @@ public class StateMachine
 {
     public State CurrentState { get; private set; }
 
-    private Dictionary<Enum, State> _states =
-        new Dictionary<Enum, State>();
+    private Dictionary<Enum, State> _states = new Dictionary<Enum, State>();
 
     public void RegisterState(Enum key, State state)
     {
@@ -23,9 +22,7 @@ public class StateMachine
         }
 
         CurrentState?.Exit();
-
         CurrentState = newState;
-
         CurrentState.Enter();
     }
 

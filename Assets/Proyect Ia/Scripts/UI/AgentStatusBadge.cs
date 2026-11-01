@@ -20,7 +20,11 @@ public class AgentStatusBadge : MonoBehaviour
     public void Refresh(Camera camera, RectTransform canvas, Sprite icon, string caption,
         Color color, bool visible)
     {
-        if (_target == null) { gameObject.SetActive(false); return; }
+        if (_target == null)
+        {
+            gameObject.SetActive(false);
+            return;
+        }
         Vector3 screen = camera.WorldToScreenPoint(_target.position + Vector3.up * 1.2f);
         visible = visible && _target.gameObject.activeInHierarchy && screen.z > 0f
             && camera.pixelRect.Contains(screen);

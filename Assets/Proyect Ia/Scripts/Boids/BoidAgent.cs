@@ -6,7 +6,6 @@ public class BoidAgent : Agent
     [SerializeField] private float _maxHealth = 20f;
     [SerializeField] private float _currentHealth;
     [SerializeField] private Renderer _bodyRenderer;
-    private Color _originalColor;
 
     [Header("Sickness")]
     [SerializeField] private float _sickDuration = 5f;
@@ -16,7 +15,6 @@ public class BoidAgent : Agent
 
     [Header("Respawn")]
     [SerializeField] private float _respawnDelay = 5f;
-    private bool _collected;
 
     [Header("Stats")]
     [SerializeField] private float _maxSpeed = 3f;
@@ -50,204 +48,117 @@ public class BoidAgent : Agent
     [SerializeField] private float _interactionDamage = 5f;
     [SerializeField] private float _interactionInterval = 0.25f;
     [SerializeField] private bool _isInteracting;
-    private float _interactionTimer;
 
     private readonly BoidPerception _perception = new BoidPerception();
     private readonly BoidSteering _steering = new BoidSteering();
+    private BoidHealth _health;
+    private BoidMovement _movement;
+    private BoidInteraction _interaction;
+    private BoidFeedback _feedback;
 
-    public bool ThreatDetected => _threatDetected;
-    public InterestObject InterestTarget => _interestTarget;
-    public bool IsSick => _sickTimer > 0f;
-    public bool IsInteracting => _isInteracting;
-    public float CurrentMaxSpeed => _maxSpeed * (IsSick ? _sickSpeedMultiplier : 1f);
-    public bool IsAlive => _currentHealth > 0f;
+    public bool ThreatDetected => _perception.Threat != null;
+    public InterestObject InterestTarget => _interaction?.Target;
+    public bool IsSick => _health != null && _health.IsSick;
+    public bool IsInteracting => _interaction != null && _interaction.IsInteracting;
+    public float CurrentMaxSpeed => _health != null ? _health.GetMaxSpeed(_maxSpeed, _sickSpeedMultiplier) : _maxSpeed;
+    public bool IsAlive => _health != null && _health.IsAlive;
 
-    private void Awake() => InitializeAppearance();
+    private void Awake() => Initialize();
     private void OnEnable() => ResetAgent();
-    private void OnDisable() => ClearPerceptionAndInterest();
+    private void OnDisable() => SuspendAgent();
     private void Update() => Tick(Time.deltaTime);
 
-    private void InitializeAppearance()
+    private void Initialize()
     {
+        if (_health != null) return;
         if (_bodyRenderer == null) _bodyRenderer = GetComponent<Renderer>();
-        if (_bodyRenderer != null) _originalColor = _bodyRenderer.material.color;
+        _health = new BoidHealth();
+        _movement = new BoidMovement(transform);
+        _interaction = new BoidInteraction(this, _movement);
+        _feedback = new BoidFeedback(_bodyRenderer != null ? _bodyRenderer.material : null);
     }
 
     private void ResetAgent()
     {
-        ClearPerceptionAndInterest();
-        _currentHealth = _maxHealth;
-        _sickTimer = 0f;
-        _collected = false;
-        InitializeVelocity();
-        SetColor(_originalColor);
-    }
-
-    private void ClearPerceptionAndInterest()
-    {
-        ReleaseInterestTarget();
+        Initialize();
+        _interaction.Release();
         _perception.Reset();
-        _threatDetected = false;
-        _detectedNeighbors = 0;
+        _health.Reset(_maxHealth);
+        _movement.InitializeVelocity(CurrentMaxSpeed);
+        RefreshPresentation();
     }
 
-    private void InitializeVelocity()
+    private void SuspendAgent()
     {
-        Vector3 direction = new Vector3(Random.Range(-1f, 1f), 0f, Random.Range(-1f, 1f));
-        if (direction.sqrMagnitude < 0.001f) direction = Vector3.forward;
-        _velocity = direction.normalized * CurrentMaxSpeed;
+        _interaction?.Release();
+        _perception.Reset();
+        _movement?.Stop();
+        RefreshPresentation();
     }
 
     private void Tick(float deltaTime)
     {
         if (!IsAlive) return;
-        UpdateSickness();
+        _health.Tick(deltaTime);
         UpdatePerception(deltaTime);
-        UpdateInterestTarget();
-        if (_isInteracting)
+        _interaction.UpdateTarget(_perception, _interestRadius, ThreatDetected);
+        if (!_interaction.IsInteracting) UpdateMovement(deltaTime);
+        if (_interaction.Tick(_interactionRadius, _stopDistance, _interactionDamage, _interactionInterval, deltaTime))
         {
-            UpdateInteraction();
-            return;
+            _health.BecomeSick(_sickDuration);
+            _movement.Resume(CurrentMaxSpeed);
         }
-
-        UpdateMovement(deltaTime);
-        UpdateInteraction();
+        RefreshPresentation();
     }
 
     private void UpdatePerception(float deltaTime)
     {
         _perception.Update(this, _viewRadius, _separationRadius, _interestRadius,
             _escapeMargin, _perceptionLayers, _perceptionInterval, deltaTime);
-        _detectedNeighbors = _perception.VisibleNeighborCount;
-        _threatDetected = _perception.Threat != null;
-    }
-
-    private void UpdateInterestTarget()
-    {
-        if (_threatDetected)
-        {
-            ReleaseInterestTarget();
-            return;
-        }
-
-        if (_perception.IsInterestAvailable(_interestTarget, this, _interestRadius)) return;
-        ReleaseInterestTarget();
-        InterestObject closest = _perception.GetClosestInterest(this, _interestRadius);
-        if (closest != null && closest.TryReserve(this)) _interestTarget = closest;
     }
 
     private void UpdateMovement(float deltaTime)
     {
-        _steering.UpdateMotion(transform.position, _velocity, CurrentMaxSpeed, _maxSteering, deltaTime);
-        _velocity += GetSteering();
-        _velocity.y = 0f;
-        _velocity = Vector3.ClampMagnitude(_velocity, CurrentMaxSpeed);
-        transform.position += _velocity * deltaTime;
-        if (_velocity.sqrMagnitude > 0.001f) transform.forward = _velocity.normalized;
-        if (WorldBounds.Instance != null)
-            transform.position = WorldBounds.Instance.OutOfBounds(transform.position);
+        _steering.UpdateMotion(transform.position, _movement.Velocity, CurrentMaxSpeed, _maxSteering, deltaTime);
+        _movement.Move(GetSteering(), CurrentMaxSpeed, deltaTime, WorldBounds.Instance);
     }
 
     private Vector3 GetSteering()
     {
-        if (_threatDetected)
+        if (ThreatDetected)
             return _steering.Evade(_perception.Threat) * _evadeWeight
                 + _steering.Separation(_perception.Neighbors, _separationRadius) * _separationWeight;
-        if (_interestTarget != null)
-            return _steering.Arrive(_interestTarget.transform.position, _slowingDistance, _stopDistance)
+        if (InterestTarget != null)
+            return _steering.Arrive(InterestTarget.transform.position, _slowingDistance, _stopDistance)
                 + _steering.Separation(_perception.Neighbors, _separationRadius) * _separationWeight;
 
         Vector3 weights = new Vector3(_separationWeight, _alignmentWeight, _cohesionWeight);
         return _steering.Flocking(_perception.Neighbors, _separationRadius, _viewRadius, weights);
     }
 
-    private void ReleaseInterestTarget()
+    private void RefreshPresentation()
     {
-        if (_interestTarget != null) _interestTarget.Release(this);
-        _interestTarget = null;
-        _interactionTimer = 0f;
-        _isInteracting = false;
-    }
-
-    private void UpdateInteraction()
-    {
-        _isInteracting = false;
-        if (_threatDetected || _interestTarget == null || !_interestTarget.IsAvailableFor(this)
-            || _interestTarget.ReservedBy != this)
-        {
-            _interactionTimer = 0f;
-            return;
-        }
-
-        Vector3 targetPosition = _interestTarget.transform.position;
-        targetPosition.y = transform.position.y;
-        float interactionDistance = Mathf.Min(_interactionRadius, _stopDistance + 0.05f);
-        if (Vector3.Distance(transform.position, targetPosition) > interactionDistance)
-        {
-            _interactionTimer = 0f;
-            return;
-        }
-
-        StayBesideInterest(targetPosition);
-        _interactionTimer += Time.deltaTime;
-        if (_interactionTimer < _interactionInterval) return;
-        bool consumed = _interestTarget.Consume(this, _interactionDamage);
-        _interactionTimer = 0f;
-        if (!consumed) return;
-        ReleaseInterestTarget();
-        BecomeSick();
-        _velocity = transform.forward * CurrentMaxSpeed;
-    }
-
-    private void StayBesideInterest(Vector3 targetPosition)
-    {
-        Vector3 offset = transform.position - targetPosition;
-        if (offset.sqrMagnitude < 0.001f) offset = -transform.forward;
-        transform.position = targetPosition + offset.normalized * _stopDistance;
-        _velocity = Vector3.zero;
-        _isInteracting = true;
-    }
-
-    private void SetColor(Color color)
-    {
-        if (_bodyRenderer != null) _bodyRenderer.material.color = color;
-    }
-
-    private void BecomeSick()
-    {
-        _sickTimer = _sickDuration;
-        _velocity = Vector3.ClampMagnitude(_velocity, CurrentMaxSpeed);
-        SetColor(_sickColor);
-    }
-
-    private void UpdateSickness()
-    {
-        if (!IsSick) return;
-        _sickTimer = Mathf.Max(0f, _sickTimer - Time.deltaTime);
-        if (!IsSick) SetColor(_originalColor);
+        // Espejos para el Inspector y Agent.Velocity; los helpers conservan el estado real.
+        _currentHealth = _health?.CurrentHealth ?? 0f;
+        _sickTimer = _health?.SickTime ?? 0f;
+        _interestTarget = InterestTarget;
+        _isInteracting = IsInteracting;
+        _threatDetected = ThreatDetected;
+        _detectedNeighbors = _perception.VisibleNeighborCount;
+        _velocity = _movement?.Velocity ?? Vector3.zero;
+        _feedback?.Refresh(IsAlive, IsSick, _sickColor);
     }
 
     public void TakeDamage(float damage)
     {
-        if (!IsAlive || damage <= 0f) return;
-        _currentHealth = Mathf.Max(0f, _currentHealth - damage);
-        if (!IsAlive) Die();
+        if (_health == null) return;
+        if (_health.TakeDamage(damage)) SuspendAgent();
+        RefreshPresentation();
     }
 
     public bool Collect()
     {
-        if (IsAlive || _collected || !gameObject.activeInHierarchy || WorldBounds.Instance == null) return false;
-        _collected = true;
-        WorldBounds.Instance.RespawnAfter(this, _respawnDelay);
-        return true;
-    }
-
-    private void Die()
-    {
-        ClearPerceptionAndInterest();
-        _sickTimer = 0f;
-        _velocity = Vector3.zero;
-        SetColor(Color.red);
+        return _health != null && _health.TryCollect(this, WorldBounds.Instance, _respawnDelay);
     }
 
     [ContextMenu("Debug/Recibir 5 de dano")]
@@ -258,12 +169,6 @@ public class BoidAgent : Agent
 
     private void OnDrawGizmosSelected()
     {
-        Gizmos.color = Application.isPlaying && _threatDetected ? Color.magenta : Color.cyan;
-        Gizmos.DrawWireSphere(transform.position, _viewRadius);
-        Gizmos.color = Color.red;
-        Gizmos.DrawWireSphere(transform.position, _separationRadius);
-        if (!Application.isPlaying) return;
-        Gizmos.color = Color.yellow;
-        Gizmos.DrawLine(transform.position, transform.position + _velocity);
+        BoidFeedback.DrawGizmos(transform.position, _velocity, ThreatDetected, _viewRadius, _separationRadius);
     }
 }
