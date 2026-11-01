@@ -2,40 +2,37 @@ using UnityEngine;
 
 public class HunterGatherState : State
 {
-    private HunterAgent _agent;
+    private readonly HunterAgent _agent;
     private float _timer;
 
-    public HunterGatherState(
-        HunterAgent agent,
-        StateMachine stateMachine
-    ) : base(stateMachine)
+    public HunterGatherState(HunterAgent agent, StateMachine stateMachine) : base(stateMachine)
     {
         _agent = agent;
     }
 
     public override void Enter()
     {
-        _timer = 0f;
-        _agent.SetGatherProgress(0f);
+        ResetProgress();
         Debug.Log("Hunter: Gather");
     }
 
     public override void Update()
     {
         BoidAgent target = _agent.Target;
-
         if (target == null || target.IsAlive || !_agent.CanSee(target))
         {
             _stateMachine.ChangeState(HunterStates.Patrol);
             return;
         }
 
-        float distance = _agent.DistanceTo(target.transform.position);
+        ApproachOrGather(target);
+    }
 
-        if (distance > _agent.GatherRadius)
+    private void ApproachOrGather(BoidAgent target)
+    {
+        if (_agent.DistanceTo(target.transform.position) > _agent.GatherRadius)
         {
-            _timer = 0f;
-            _agent.SetGatherProgress(0f);
+            ResetProgress();
             _agent.MoveTowards(target.transform.position);
             return;
         }
@@ -43,23 +40,21 @@ public class HunterGatherState : State
         _agent.Stop();
         _timer += Time.deltaTime;
         _agent.SetGatherProgress(_timer);
+        if (_timer < _agent.GatherDuration) return;
 
-        if (_timer >= _agent.GatherDuration)
-        {
-            if (target.Collect())
-            {
-                Debug.Log("Hunter: recoleccion completada");
-            }
+        if (target.Collect()) Debug.Log("Hunter: recoleccion completada");
+        _stateMachine.ChangeState(HunterStates.Patrol);
+    }
 
-            _stateMachine.ChangeState(HunterStates.Patrol);
-            return;
-        }
+    private void ResetProgress()
+    {
+        _timer = 0f;
+        _agent.SetGatherProgress(0f);
     }
 
     public override void Exit()
     {
-        _timer = 0f;
-        _agent.SetGatherProgress(0f);
+        ResetProgress();
         _agent.Stop();
         _agent.SetTarget(null);
     }

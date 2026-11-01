@@ -1,7 +1,6 @@
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
-using UnityEngine.SceneManagement;
 using UnityEngine.EventSystems;
 using UnityEngine.InputSystem.UI;
 
@@ -30,35 +29,31 @@ public class SimulationUI : MonoBehaviour
     private Rect _originalRect;
     private float _originalSize;
     private bool _showIcons = true;
+    private bool _initialized;
     private readonly Color _orange = new Color(1f, .66f, .3f);
     private readonly Color _cyan = new Color(.35f, .89f, .92f);
     private readonly Color _green = new Color(.35f, .86f, .65f);
     private readonly Color _red = new Color(1f, .4f, .42f);
 
-    // Se carga solo en la simulación. No es necesario modificar la escena abierta.
-    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
-    private static void Register()
+    public void Initialize(HunterAgent hunter, BoidAgent[] boids, Camera sceneCamera)
     {
-        SceneManager.sceneLoaded -= OnSceneLoaded;
-        SceneManager.sceneLoaded += OnSceneLoaded;
-    }
-
-    private static void OnSceneLoaded(Scene scene, LoadSceneMode mode)
-    {
-        if (scene.name != "MainSimulation" || FindFirstObjectByType<SimulationUI>() != null) return;
-        GameObject prefab = Resources.Load<GameObject>("SimulationHUD");
-        if (prefab != null) Instantiate(prefab);
-    }
-
-    private void Start()
-    {
-        _hunter = FindFirstObjectByType<HunterAgent>();
-        _boids = FindObjectsByType<BoidAgent>(FindObjectsInactive.Include, FindObjectsSortMode.None);
-        _camera = Camera.main;
+        if (_initialized) return;
+        _hunter = hunter;
+        _boids = boids ?? System.Array.Empty<BoidAgent>();
+        _camera = sceneCamera;
         _canvas = (RectTransform)transform;
         if (_camera == null || _hunter == null) { enabled = false; return; }
         _originalRect = _camera.rect;
         _originalSize = _camera.orthographicSize;
+        CreateBackgroundCamera();
+        CreateEventSystem();
+        CreateAgentBadges();
+        IconsButton.onClick.AddListener(ToggleIcons);
+        _initialized = true;
+    }
+
+    private void CreateBackgroundCamera()
+    {
         // Limpia toda la ventana, también fuera del rectángulo de la cámara del mundo.
         Camera background = new GameObject("UI Background Camera", typeof(Camera)).GetComponent<Camera>();
         background.transform.SetParent(transform, false);
@@ -66,12 +61,20 @@ public class SimulationUI : MonoBehaviour
         background.cullingMask = 0;
         background.clearFlags = CameraClearFlags.SolidColor;
         background.backgroundColor = new Color(.025f, .04f, .055f);
-        if (FindFirstObjectByType<EventSystem>() == null)
+    }
+
+    private void CreateEventSystem()
+    {
+        if (EventSystem.current == null)
             new GameObject("UI EventSystem", typeof(EventSystem), typeof(InputSystemUIInputModule));
+    }
+
+    private void CreateAgentBadges()
+    {
         _hunterBadge = CreateBadge(_hunter.transform);
         _badges = new AgentStatusBadge[_boids.Length];
-        for (int i = 0; i < _boids.Length; i++) _badges[i] = CreateBadge(_boids[i].transform);
-        IconsButton.onClick.AddListener(ToggleIcons);
+        for (int i = 0; i < _boids.Length; i++)
+            if (_boids[i] != null) _badges[i] = CreateBadge(_boids[i].transform);
     }
 
     private AgentStatusBadge CreateBadge(Transform target)
@@ -83,6 +86,14 @@ public class SimulationUI : MonoBehaviour
 
     private void LateUpdate()
     {
+        if (!_initialized) return;
+        UpdateViewport();
+        RefreshHunter();
+        RefreshBoids();
+    }
+
+    private void UpdateViewport()
+    {
         // Reservar espacio para el panel, sin tapar la simulación.
         float width = _canvas.rect.width;
         float height = _canvas.rect.height;
@@ -90,7 +101,10 @@ public class SimulationUI : MonoBehaviour
             (width - 372f) / width, (height - 152f) / height);
         if (_camera.orthographic)
             _camera.orthographicSize = Mathf.Max(_originalSize * CameraZoom, 10f / _camera.aspect);
-        RefreshHunter();
+    }
+
+    private void RefreshBoids()
+    {
         for (int i = 0; i < _boids.Length; i++)
         {
             BoidAgent boid = _boids[i];

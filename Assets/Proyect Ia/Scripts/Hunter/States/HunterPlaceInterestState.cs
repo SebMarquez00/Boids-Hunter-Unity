@@ -2,14 +2,12 @@ using UnityEngine;
 
 public class HunterPlaceInterestState : State
 {
-    private HunterAgent _agent;
+    private readonly HunterAgent _agent;
     private float _timer;
+
     public float Elapsed => _timer;
 
-    public HunterPlaceInterestState(
-        HunterAgent agent,
-        StateMachine stateMachine
-    ) : base(stateMachine)
+    public HunterPlaceInterestState(HunterAgent agent, StateMachine stateMachine) : base(stateMachine)
     {
         _agent = agent;
     }
@@ -23,15 +21,17 @@ public class HunterPlaceInterestState : State
 
     public override void Update()
     {
+        UpdatePlacement();
+    }
+
+    private void UpdatePlacement()
+    {
         _agent.Stop();
         _timer += Time.deltaTime;
+        if (_timer < _agent.PlacementDuration) return;
 
-        if (_timer >= _agent.PlacementDuration)
-        {
-            _agent.PlaceInterestObject();
-            _stateMachine.ChangeState(HunterStates.Patrol);
-            return;
-        }
+        _agent.PlaceInterestObject();
+        _stateMachine.ChangeState(HunterStates.Patrol);
     }
 
     public override void Exit()

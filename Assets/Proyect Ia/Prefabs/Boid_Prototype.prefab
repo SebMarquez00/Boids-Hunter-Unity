@@ -135,7 +135,6 @@ MonoBehaviour:
   _viewRadius: 4
   _detectedNeighbors: 0
   _separationRadius: 2
-  _hunter: {fileID: 0}
   _threatDetected: 0
   _evadeWeight: 2
   _slowingDistance: 2
