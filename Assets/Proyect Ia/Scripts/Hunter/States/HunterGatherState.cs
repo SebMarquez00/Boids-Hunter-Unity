@@ -21,7 +21,7 @@ public class HunterGatherState : State
         BoidAgent target = _agent.Target;
         if (target == null || target.IsAlive || !_agent.CanSee(target))
         {
-            _stateMachine.ChangeState(HunterStates.Patrol);
+            _stateMachine.ChangeState(_agent.ReturnState);
             return;
         }
 
@@ -33,7 +33,7 @@ public class HunterGatherState : State
         if (_agent.DistanceTo(target.transform.position) > _agent.GatherRadius)
         {
             ResetProgress();
-            _agent.MoveTowards(target.transform.position);
+            _agent.ApproachTarget(target);
             return;
         }
 
@@ -43,7 +43,7 @@ public class HunterGatherState : State
         if (_timer < _agent.GatherDuration) return;
 
         if (target.Collect()) Debug.Log("Hunter: recoleccion completada");
-        _stateMachine.ChangeState(HunterStates.Patrol);
+        _stateMachine.ChangeState(_agent.ReturnState);
     }
 
     private void ResetProgress()

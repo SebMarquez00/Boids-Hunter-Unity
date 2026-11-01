@@ -20,12 +20,13 @@ public class HunterPerception
         _sensor.GetDetected(_interestObjects);
     }
 
-    public bool CanSee(BoidAgent agent, Vector3 origin, float radius)
+    public bool CanSee(BoidAgent agent, Vector3 origin, float radius, LayerMask obstacleMask = default)
     {
-        return IsInRange(agent, origin, radius) && _boids.Contains(agent);
+        return IsInRange(agent, origin, radius) && _boids.Contains(agent)
+            && HasLineOfSight(origin, agent.transform.position, obstacleMask);
     }
 
-    public BoidAgent FindClosestBoid(Vector3 origin, float radius, bool alive)
+    public BoidAgent FindClosestBoid(Vector3 origin, float radius, bool alive, LayerMask obstacleMask = default)
     {
         BoidAgent closest = null;
         float closestDistance = float.MaxValue;
@@ -36,6 +37,7 @@ public class HunterPerception
 
             float distance = PlanarDistanceSquared(origin, boid.transform.position);
             if (distance >= closestDistance) continue;
+            if (!HasLineOfSight(origin, boid.transform.position, obstacleMask)) continue;
 
             closestDistance = distance;
             closest = boid;
@@ -60,6 +62,11 @@ public class HunterPerception
         Vector3 offset = target - origin;
         offset.y = 0f;
         return offset.sqrMagnitude;
+    }
+
+    private static bool HasLineOfSight(Vector3 origin, Vector3 target, LayerMask obstacleMask)
+    {
+        return obstacleMask.value == 0 || !Physics.Linecast(origin, target, obstacleMask, QueryTriggerInteraction.Ignore);
     }
 
     private static bool IsInRange(BoidAgent agent, Vector3 origin, float radius)
