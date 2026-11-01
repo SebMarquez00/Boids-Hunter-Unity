@@ -62,7 +62,7 @@ public class HunterSearchState : State
     private void SearchHuntingGround()
     {
         if (_agent.Navigation == null || _agent.Navigation.Follower == null) return;
-        _selectionRetry = Mathf.Max(0f, _selectionRetry - Time.deltaTime);
+        _selectionRetry = Mathf.Max(0f, _selectionRetry - _agent.DeltaTime);
         if (!_hasDestination || _agent.Navigation.HasArrived)
         {
             if (_selectionRetry > 0f) return;

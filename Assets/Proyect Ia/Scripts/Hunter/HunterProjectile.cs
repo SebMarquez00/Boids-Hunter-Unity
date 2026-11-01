@@ -11,6 +11,7 @@ public class HunterProjectile : MonoBehaviour
     private Vector3 _direction;
     private float _timer;
     private LayerMask _obstacleMask;
+    private bool _cancelled;
 
     public void Initialize(HunterAgent owner, BoidAgent target)
     {
@@ -28,7 +29,8 @@ public class HunterProjectile : MonoBehaviour
 
     private void UpdateFlight()
     {
-        if ((_owner != null && !_owner.IsAvailableToWolves)
+        if (_cancelled) return;
+        if ((_owner != null && !_owner.CanUseCombat)
             || _target == null || !_target.isActiveAndEnabled || !_target.IsAlive)
         {
             Finish(false);
@@ -81,7 +83,18 @@ public class HunterProjectile : MonoBehaviour
 
     private void Finish(bool hit)
     {
+        if (_cancelled) return;
+        _cancelled = true;
+        enabled = false;
         if (_owner != null) _owner.ResolveProjectile(hit);
+        Destroy(gameObject);
+    }
+
+    public void Cancel()
+    {
+        if (_cancelled) return;
+        _cancelled = true;
+        enabled = false;
         Destroy(gameObject);
     }
 }

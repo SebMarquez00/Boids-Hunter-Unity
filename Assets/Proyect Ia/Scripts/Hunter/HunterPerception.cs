@@ -5,6 +5,7 @@ public class HunterPerception
 {
     private readonly ProximitySensor _sensor = new ProximitySensor();
     private readonly List<BoidAgent> _boids = new List<BoidAgent>();
+    private readonly List<WolfAgent> _wolves = new List<WolfAgent>();
     private readonly List<InterestObject> _interestObjects = new List<InterestObject>();
     private float _timeUntilScan;
 
@@ -17,7 +18,24 @@ public class HunterPerception
         _timeUntilScan = Mathf.Max(0.01f, interval);
         _sensor.Scan(origin, Mathf.Max(viewRadius, interestRadius), layers);
         _sensor.GetDetected(_boids);
+        _sensor.GetDetected(_wolves);
         _sensor.GetDetected(_interestObjects);
+    }
+
+    public WolfAgent FindClosestWolf(Vector3 origin, float radius, LayerMask obstacleMask = default)
+    {
+        WolfAgent closest = null;
+        float closestDistance = float.MaxValue;
+        foreach (WolfAgent wolf in _wolves)
+        {
+            if (wolf == null || !wolf.isActiveAndEnabled || radius < 0f) continue;
+            float distance = PlanarDistanceSquared(origin, wolf.transform.position);
+            if (distance > radius * radius || distance >= closestDistance
+                || !HasLineOfSight(origin, wolf.transform.position, obstacleMask)) continue;
+            closest = wolf;
+            closestDistance = distance;
+        }
+        return closest;
     }
 
     public bool CanSee(BoidAgent agent, Vector3 origin, float radius, LayerMask obstacleMask = default)

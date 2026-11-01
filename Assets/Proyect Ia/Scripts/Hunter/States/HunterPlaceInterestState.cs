@@ -27,7 +27,7 @@ public class HunterPlaceInterestState : State
     private void UpdatePlacement()
     {
         _agent.Stop();
-        _timer += Time.deltaTime;
+        _timer += _agent.DeltaTime;
         if (_timer < _agent.PlacementDuration) return;
 
         _agent.PlaceInterestObject();
