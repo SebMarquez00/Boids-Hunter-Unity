@@ -12,6 +12,7 @@ public class HunterGatherState : State
 
     public override void Enter()
     {
+        if (_agent.UsesNavigation) _agent.SetTarget(_agent.FindClosestDeadBoid());
         ResetProgress();
         Debug.Log("Hunter: Gather");
     }
@@ -38,7 +39,7 @@ public class HunterGatherState : State
         }
 
         _agent.Stop();
-        _timer += Time.deltaTime;
+        _timer += _agent.DeltaTime;
         _agent.SetGatherProgress(_timer);
         if (_timer < _agent.GatherDuration) return;
 
@@ -47,7 +48,7 @@ public class HunterGatherState : State
             _agent.RegisterGather();
             Debug.Log("Hunter: recoleccion completada");
         }
-        _stateMachine.ChangeState(_agent.ReturnState);
+        _stateMachine.ChangeState(_agent.ReturnWorkState);
     }
 
     private void ResetProgress()

@@ -46,7 +46,7 @@ public class HunterCombat
 
     public void ClearProjectile()
     {
-        if (_activeProjectile != null) Object.Destroy(_activeProjectile.gameObject);
+        if (_activeProjectile != null) _activeProjectile.Cancel();
         _activeProjectile = null;
         ProjectileHit = false;
     }

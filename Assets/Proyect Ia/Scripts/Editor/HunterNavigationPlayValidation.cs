@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.SceneManagement;
@@ -8,6 +9,7 @@ using Object = UnityEngine.Object;
 public static class HunterNavigationPlayValidation
 {
     private const string PendingKey = "IA.HunterNavigationPlayValidation.Pending";
+    private static readonly List<WolfAgent> PausedWolves = new List<WolfAgent>();
     private enum Phase { BlockedStart, AwaitingPassage, AwaitingHuntingGround }
     private static HunterAgent _hunter;
     private static ScenarioReferences _scenario;
@@ -92,6 +94,7 @@ public static class HunterNavigationPlayValidation
             _spawnPosition = _scenario.HunterSpawn.position;
             _initialPosition = _hunter.transform.position;
             Require(PlanarDistance(_initialPosition, _spawnPosition) <= 0.2f, "El Cazador ya se alejo del punto inicial.");
+            PauseWolves(scene);
             _gate = GameObject.CreatePrimitive(PrimitiveType.Cube);
             _gate.name = "VALIDACION TEMPORAL - Bloqueo de navegacion";
             _gate.layer = obstacleLayer;
@@ -208,6 +211,19 @@ public static class HunterNavigationPlayValidation
         return found;
     }
 
+    private static void PauseWolves(Scene scene)
+    {
+        foreach (GameObject root in scene.GetRootGameObjects())
+            foreach (WolfAgent wolf in root.GetComponentsInChildren<WolfAgent>(true))
+            {
+                if (!wolf.enabled) continue;
+                PausedWolves.Add(wolf);
+                wolf.enabled = false;
+            }
+        Debug.Log("Prueba de recalculo: lobos pausados temporalmente para aislar la navegacion de la huida. " +
+            "Se restauran al terminar la prueba.");
+    }
+
     private static void BeforeReload()
     {
         if (!_running) return; // La solicitud inicial sobrevive al domain reload que inicia Play.
@@ -229,6 +245,9 @@ public static class HunterNavigationPlayValidation
         AssemblyReloadEvents.beforeAssemblyReload -= BeforeReload;
         SessionState.EraseBool(PendingKey);
         _running = false;
+        foreach (WolfAgent wolf in PausedWolves)
+            if (wolf != null) wolf.enabled = true;
+        PausedWolves.Clear();
         if (_gate != null)
         {
             _gate.SetActive(false);

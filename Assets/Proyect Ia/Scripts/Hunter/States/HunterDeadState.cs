@@ -19,7 +19,7 @@ public class HunterDeadState : State
 
     public override void Update()
     {
-        Elapsed += Time.deltaTime;
+        Elapsed += _agent.DeltaTime;
         if (Elapsed < _agent.RespawnTime) return;
         _agent.Respawn();
         _stateMachine.ChangeState(_agent.ReturnState);
