@@ -36,8 +36,10 @@ public class HunterNavigationFeedback : MonoBehaviour
         string movement = _navigator.WaitingForPath ? "Sin camino: reintentando"
             : _navigator.HasArrived ? "Destino alcanzado"
             : _navigator.HasDestination ? "Siguiendo A*" : "";
+        if (_hunter.IsDead) movement = "Reaparece en " + _hunter.RespawnRemaining.ToString("0.0") + " s";
         _statusLabel.text = "CAZADOR | " + state
             + (movement.Length > 0 ? " | " + movement : "")
+            + " | Recolecciones: " + _hunter.GatherCount
             + " | Calculos A*: " + _navigator.CalculationCount;
     }
 

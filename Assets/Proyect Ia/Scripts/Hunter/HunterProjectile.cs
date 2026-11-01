@@ -28,7 +28,8 @@ public class HunterProjectile : MonoBehaviour
 
     private void UpdateFlight()
     {
-        if (_target == null || !_target.isActiveAndEnabled || !_target.IsAlive)
+        if ((_owner != null && !_owner.IsAvailableToWolves)
+            || _target == null || !_target.isActiveAndEnabled || !_target.IsAlive)
         {
             Finish(false);
             return;
