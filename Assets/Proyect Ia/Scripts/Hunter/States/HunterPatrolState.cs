@@ -2,13 +2,10 @@ using UnityEngine;
 
 public class HunterPatrolState : State
 {
-    private HunterAgent _agent;
+    private readonly HunterAgent _agent;
     private int _currentNode;
 
-    public HunterPatrolState(
-        HunterAgent agent,
-        StateMachine stateMachine
-    ) : base(stateMachine)
+    public HunterPatrolState(HunterAgent agent, StateMachine stateMachine) : base(stateMachine)
     {
         _agent = agent;
     }
@@ -20,71 +17,62 @@ public class HunterPatrolState : State
 
     public override void Update()
     {
-        // Antes de empezar un nuevo ataque, priorizar una recoleccion disponible.
-        BoidAgent eliminated = _agent.FindClosestDeadBoid();
+        if (TryChangeState()) return;
+        FollowWaypoints();
+    }
 
+    private bool TryChangeState()
+    {
+        // Antes de iniciar un ataque, prioriza una recoleccion disponible.
+        BoidAgent eliminated = _agent.FindClosestDeadBoid();
         if (eliminated != null)
         {
             _agent.SetTarget(eliminated);
             _stateMachine.ChangeState(HunterStates.Gather);
-            return;
+            return true;
         }
 
         if (_agent.CanPlaceInterestObject())
         {
             _stateMachine.ChangeState(HunterStates.PlaceInterest);
-            return;
+            return true;
         }
 
-        if (_agent.CanAttack)
-        {
-            BoidAgent target = _agent.FindClosestAliveBoid();
+        if (!_agent.CanAttack) return false;
+        BoidAgent target = _agent.FindClosestAliveBoid();
+        if (target == null) return false;
 
-            if (target != null)
-            {
-                _agent.SetTarget(target);
+        _agent.SetTarget(target);
+        _stateMachine.ChangeState(HunterStates.Attack);
+        return true;
+    }
 
-                _stateMachine.ChangeState(HunterStates.Attack);
-                return;
-            }
-        }
-
+    private void FollowWaypoints()
+    {
         if (_agent.Waypoints.Count == 0)
         {
             _agent.Stop();
             return;
         }
 
-        Transform waypoint =
-            _agent.Waypoints[_currentNode];
-
+        _currentNode %= _agent.Waypoints.Count;
+        Transform waypoint = _agent.Waypoints[_currentNode];
         if (waypoint == null)
         {
             _agent.Stop();
             return;
         }
 
-        Vector3 direction =
-            waypoint.position - _agent.transform.position;
-
-        direction.y = 0f;
-
-        if (direction.magnitude <= _agent.WaypointCheckDistance)
+        if (_agent.DistanceTo(waypoint.position) <= _agent.WaypointCheckDistance)
         {
-            _currentNode++;
-
-            if (_currentNode >= _agent.Waypoints.Count)
-            {
-                _currentNode = 0;
-            }
-
+            _currentNode = (_currentNode + 1) % _agent.Waypoints.Count;
             waypoint = _agent.Waypoints[_currentNode];
+        }
 
-            if (waypoint == null)
-            {
-                _agent.Stop();
-                return;
-            }
+        if (waypoint == null)
+        {
+            _agent.Stop();
+            return;
         }
 
         _agent.MoveTowards(waypoint.position);

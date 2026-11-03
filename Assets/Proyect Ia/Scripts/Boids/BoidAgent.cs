@@ -1,6 +1,4 @@
-using System.Collections.Generic;
 using UnityEngine;
-
 
 public class BoidAgent : Agent
 {
@@ -9,26 +7,14 @@ public class BoidAgent : Agent
     [SerializeField] private float _currentHealth;
     [SerializeField] private Renderer _bodyRenderer;
 
-    private Color _originalColor;
-
     [Header("Sickness")]
     [SerializeField] private float _sickDuration = 5f;
     [SerializeField, Range(0.1f, 1f)] private float _sickSpeedMultiplier = 0.35f;
     [SerializeField] private Color _sickColor = new Color(0.15f, 0.7f, 0.55f, 1f);
     [SerializeField] private float _sickTimer;
 
-    public bool ThreatDetected => _threatDetected;
-    public InterestObject InterestTarget => _interestTarget;
-
-    public bool IsSick => _sickTimer > 0f;
-    public bool IsInteracting => _isInteracting;
-    public float CurrentMaxSpeed => _maxSpeed * (IsSick ? _sickSpeedMultiplier : 1f);
-
     [Header("Respawn")]
     [SerializeField] private float _respawnDelay = 5f;
-    private bool _collected;
-
-    public bool IsAlive => _currentHealth > 0f;
 
     [Header("Stats")]
     [SerializeField] private float _maxSpeed = 3f;
@@ -39,577 +25,150 @@ public class BoidAgent : Agent
     [SerializeField] private int _detectedNeighbors;
     [SerializeField] private float _interestRadius = 3f;
     [SerializeField] private float _escapeMargin = 1.5f;
+    [SerializeField, Min(0.01f)] private float _perceptionInterval = 0.1f;
+    [SerializeField] private LayerMask _perceptionLayers = ~0;
 
     [Header("Flocking")]
     [SerializeField] private float _separationRadius = 2f;
+    [SerializeField, Range(0f, 3f)] private float _separationWeight = 1f;
+    [SerializeField, Range(0f, 3f)] private float _alignmentWeight = 1f;
+    [SerializeField, Range(0f, 3f)] private float _cohesionWeight = 1f;
 
     [Header("Threat")]
-    [SerializeField] private Agent _hunter;
     [SerializeField] private bool _threatDetected;
-    [SerializeField, Range(0f, 5f)]
-    private float _evadeWeight = 2f;
+    [SerializeField, Range(0f, 5f)] private float _evadeWeight = 2f;
 
     [Header("Arrive")]
     [SerializeField] private float _slowingDistance = 2f;
     [SerializeField] private float _stopDistance = .65f;
-
     [SerializeField] private InterestObject _interestTarget;
 
     [Header("Interaction")]
     [SerializeField] private float _interactionRadius = 1.1f;
     [SerializeField] private float _interactionDamage = 5f;
     [SerializeField] private float _interactionInterval = 0.25f;
-
     [SerializeField] private bool _isInteracting;
 
-    private float _interactionTimer;
+    private readonly BoidPerception _perception = new BoidPerception();
+    private readonly BoidSteering _steering = new BoidSteering();
+    private BoidHealth _health;
+    private BoidMovement _movement;
+    private BoidInteraction _interaction;
+    private BoidFeedback _feedback;
 
-    [SerializeField, Range(0f, 3f)]
-    private float _separationWeight = 1f;
+    public bool ThreatDetected => _perception.Threat != null;
+    public InterestObject InterestTarget => _interaction?.Target;
+    public bool IsSick => _health != null && _health.IsSick;
+    public bool IsInteracting => _interaction != null && _interaction.IsInteracting;
+    public float CurrentMaxSpeed => _health != null ? _health.GetMaxSpeed(_maxSpeed, _sickSpeedMultiplier) : _maxSpeed;
+    public bool IsAlive => _health != null && _health.IsAlive;
 
-    [SerializeField, Range(0f, 3f)]
-    private float _alignmentWeight = 1f;
+    private void Awake() => Initialize();
+    private void OnEnable() => ResetAgent();
+    private void OnDisable() => SuspendAgent();
+    private void Update() => Tick(Time.deltaTime);
 
-    [SerializeField, Range(0f, 3f)]
-    private float _cohesionWeight = 1f;
-
-    private static List<BoidAgent> _allAgents =
-        new List<BoidAgent>();
-
-    public static IEnumerable<BoidAgent> AllAgents => _allAgents;
-
-    private void OnEnable()
+    private void Initialize()
     {
-        _currentHealth = _maxHealth;
-        _sickTimer = 0f;
-        _collected = false;
-        _detectedNeighbors = 0;
-        InitializeVelocity();
-
-        _interactionTimer = 0f;
-        _isInteracting = false;
-        _threatDetected = false;
-        _interestTarget = null;
-
-        _allAgents.Add(this);
-
-        SetColor(_originalColor);
+        if (_health != null) return;
+        if (_bodyRenderer == null) _bodyRenderer = GetComponent<Renderer>();
+        _health = new BoidHealth();
+        _movement = new BoidMovement(transform);
+        _interaction = new BoidInteraction(this, _movement);
+        _feedback = new BoidFeedback(_bodyRenderer != null ? _bodyRenderer.material : null);
     }
 
-    private void OnDisable()
+    private void ResetAgent()
     {
-        ReleaseInterestTarget();
-        _allAgents.Remove(this);
+        Initialize();
+        _interaction.Release();
+        _perception.Reset();
+        _health.Reset(_maxHealth);
+        _movement.InitializeVelocity(CurrentMaxSpeed);
+        RefreshPresentation();
     }
 
-    private void Awake()
+    private void SuspendAgent()
     {
-        if (_bodyRenderer == null)
-        {
-            _bodyRenderer = GetComponent<Renderer>();
-        }
-
-        if (_bodyRenderer != null)
-        {
-            _originalColor = _bodyRenderer.material.color;
-        }
+        _interaction?.Release();
+        _perception.Reset();
+        _movement?.Stop();
+        RefreshPresentation();
     }
 
-    private void InitializeVelocity()
+    private void Tick(float deltaTime)
     {
-        Vector3 randomDirection = new Vector3(
-            Random.Range(-1f, 1f),
-            0f,
-            Random.Range(-1f, 1f)
-        );
-
-        if (randomDirection.sqrMagnitude < 0.001f)
+        if (!IsAlive) return;
+        _health.Tick(deltaTime);
+        UpdatePerception(deltaTime);
+        _interaction.UpdateTarget(_perception, _interestRadius, ThreatDetected);
+        if (!_interaction.IsInteracting) UpdateMovement(deltaTime);
+        if (_interaction.Tick(_interactionRadius, _stopDistance, _interactionDamage, _interactionInterval, deltaTime))
         {
-            randomDirection = Vector3.forward;
+            _health.BecomeSick(_sickDuration);
+            _movement.Resume(CurrentMaxSpeed);
         }
-
-        _velocity = randomDirection.normalized * CurrentMaxSpeed;
+        RefreshPresentation();
     }
 
-    private void Update()
+    private void UpdatePerception(float deltaTime)
     {
-        if (!IsAlive)
-        {
-            return;
-        }
-
-        UpdateSickness();
-        DetectNeighbors();
-        _threatDetected = DetectHunter();
-
-        if (_threatDetected)
-        {
-            ReleaseInterestTarget();
-        }
-        else
-        {
-            DetectInterestObject();
-        }
-
-        if (_threatDetected)
-        {
-            _velocity += Evade(_hunter) * _evadeWeight
-                       + CalculateSeparation() * _separationWeight;
-        }
-        else if (_interestTarget != null)
-        {
-            if (_isInteracting)
-            {
-                UpdateInteraction();
-                return;
-            }
-
-            _velocity += Arrive(_interestTarget.transform.position)
-                       + CalculateSeparation() * _separationWeight;
-        }
-        else
-        {
-            _velocity += Flocking();
-        }
-        _velocity.y = 0f;
-        _velocity = Vector3.ClampMagnitude(
-            _velocity,
-            CurrentMaxSpeed
-        );
-
-        transform.position += _velocity * Time.deltaTime;
-
-        if (_velocity.sqrMagnitude > 0.001f)
-        {
-            transform.forward = _velocity.normalized;
-        }
-
-        transform.position =
-            WorldBounds.Instance.OutOfBounds(transform.position);
-
-        UpdateInteraction();
-    }
-    private Vector3 CalculateSteering(Vector3 desired)
-    {
-        Vector3 steering = desired - _velocity;
-
-        return Vector3.ClampMagnitude(
-            steering,
-            _maxSteering * Time.deltaTime
-        );
-    }
-    private Vector3 Seek(Vector3 targetPosition)
-    {
-        Vector3 direction =
-            targetPosition - transform.position;
-
-        direction.y = 0f;
-
-        Vector3 desired =
-            direction.normalized * CurrentMaxSpeed;
-
-        return CalculateSteering(desired);
-    }
-    private Vector3 Flee(Vector3 targetPosition)
-    {
-        Vector3 direction =
-            transform.position - targetPosition;
-
-        direction.y = 0f;
-
-        Vector3 desired =
-            direction.normalized * CurrentMaxSpeed;
-
-        return CalculateSteering(desired);
-    }
-    private Vector3 Arrive(Vector3 targetPosition)
-    {
-        Vector3 direction =
-            targetPosition - transform.position;
-
-        direction.y = 0f;
-
-        float distance = direction.magnitude;
-
-        if (distance <= _stopDistance)
-        {
-            return CalculateSteering(Vector3.zero);
-        }
-
-        float targetSpeed = CurrentMaxSpeed
-            * (distance - _stopDistance)
-            / (_slowingDistance - _stopDistance);
-
-        float desiredSpeed = Mathf.Min(
-            targetSpeed,
-            CurrentMaxSpeed
-        );
-
-        Vector3 desired =
-            direction.normalized * desiredSpeed;
-
-        return CalculateSteering(desired);
-    }
-    private bool InRange(Vector3 position, float radius)
-    {
-        Vector3 direction = position - transform.position;
-
-        return direction.sqrMagnitude <= radius * radius;
-    }
-    private bool IsNeighbor(BoidAgent agent, float radius)
-    {
-        return agent != this
-            && agent.IsAlive
-            && InRange(agent.transform.position, radius);
+        _perception.Update(this, _viewRadius, _separationRadius, _interestRadius,
+            _escapeMargin, _perceptionLayers, _perceptionInterval, deltaTime);
     }
 
-    private void DetectNeighbors()
+    private void UpdateMovement(float deltaTime)
     {
-        _detectedNeighbors = 0;
-
-        foreach (BoidAgent agent in _allAgents)
-        {
-            if (IsNeighbor(agent, _viewRadius))
-            {
-                _detectedNeighbors++;
-            }
-        }
-    }
-    private Vector3 CalculateSeparation()
-    {
-        Vector3 desired = Vector3.zero;
-        int count = 0;
-
-        foreach (BoidAgent agent in _allAgents)
-        {
-            if (IsNeighbor(agent, _separationRadius))
-            {
-                Vector3 direction =
-                    transform.position - agent.transform.position;
-
-                direction.y = 0f;
-
-                float distance = direction.magnitude;
-
-                if (distance > 0.001f)
-                {
-                    desired += direction.normalized / distance;
-                    count++;
-                }
-            }
-        }
-
-        if (count == 0)
-        {
-            return Vector3.zero;
-        }
-
-        desired /= count;
-
-        return CalculateSteering(
-            desired.normalized * CurrentMaxSpeed
-        );
-    }
-    private Vector3 CalculateAlignment()
-    {
-        Vector3 desired = Vector3.zero;
-        int count = 0;
-
-        foreach (BoidAgent agent in _allAgents)
-        {
-            if (IsNeighbor(agent, _viewRadius))
-            {
-                desired += agent.Velocity;
-                count++;
-            }
-        }
-
-        if (count == 0)
-        {
-            return Vector3.zero;
-        }
-
-        desired /= count;
-
-        return CalculateSteering(
-            desired.normalized * CurrentMaxSpeed
-        );
-    }
-    private Vector3 CalculateCohesion()
-    {
-        Vector3 desiredPosition = Vector3.zero;
-        int count = 0;
-
-        foreach (BoidAgent agent in _allAgents)
-        {
-            if (IsNeighbor(agent, _viewRadius))
-            {
-                desiredPosition += agent.transform.position;
-                count++;
-            }
-        }
-
-        if (count == 0)
-        {
-            return Vector3.zero;
-        }
-
-        desiredPosition /= count;
-
-        return Seek(desiredPosition);
-    }
-    private Vector3 Flocking()
-    {
-        return CalculateSeparation() * _separationWeight
-             + CalculateAlignment() * _alignmentWeight
-             + CalculateCohesion() * _cohesionWeight;
-    }
-    private Vector3 CalculateFuture(Agent target)
-    {
-        float distance = Vector3.Distance(
-            transform.position,
-            target.transform.position
-        );
-
-        float combinedSpeed =
-            CurrentMaxSpeed + target.Velocity.magnitude;
-
-        if (combinedSpeed <= 0f)
-        {
-            return target.transform.position;
-        }
-
-        float prediction = distance / combinedSpeed;
-
-        return target.transform.position
-             + target.Velocity * prediction;
-    }
-    private Vector3 Evade(Agent target)
-    {
-        Vector3 futurePosition = CalculateFuture(target);
-
-        return Flee(futurePosition);
-    }
-    private bool DetectHunter()
-    {
-        if (_hunter == null)
-        {
-            return false;
-        }
-
-        if (!_hunter.isActiveAndEnabled)
-        {
-            return false;
-        }
-
-        // Entrar en peligro y salir usan radios distintos para evitar alternancias.
-        float radius = _viewRadius + (_threatDetected ? _escapeMargin : 0f);
-        Vector3 offset = _hunter.transform.position - transform.position;
-        offset.y = 0f;
-        return offset.sqrMagnitude <= radius * radius;
-    }
-    private void ReleaseInterestTarget()
-    {
-        if (_interestTarget != null) _interestTarget.Release(this);
-        _interestTarget = null;
-        _interactionTimer = 0f;
-        _isInteracting = false;
+        _steering.UpdateMotion(transform.position, _movement.Velocity, CurrentMaxSpeed, _maxSteering, deltaTime);
+        _movement.Move(GetSteering(), CurrentMaxSpeed, deltaTime, WorldBounds.Instance);
     }
 
-    private void DetectInterestObject()
+    private Vector3 GetSteering()
     {
-        // Conservar la reserva mientras el objeto siga siendo un objetivo valido.
-        if (_interestTarget != null && _interestTarget.IsAvailableFor(this)
-            && InRange(_interestTarget.transform.position, _interestRadius))
-        {
-            return;
-        }
+        if (ThreatDetected)
+            return _steering.Evade(_perception.Threat) * _evadeWeight
+                + _steering.Separation(_perception.Neighbors, _separationRadius) * _separationWeight;
+        if (InterestTarget != null)
+            return _steering.Arrive(InterestTarget.transform.position, _slowingDistance, _stopDistance)
+                + _steering.Separation(_perception.Neighbors, _separationRadius) * _separationWeight;
 
-        ReleaseInterestTarget();
-        InterestObject closest = null;
-        float closestDistance = float.MaxValue;
-
-        foreach (InterestObject interest in InterestObject.AllObjects)
-        {
-            if (interest == null || !interest.IsAvailableFor(this)) continue;
-            if (!InRange(interest.transform.position, _interestRadius)) continue;
-
-            float distance = (interest.transform.position - transform.position).sqrMagnitude;
-            if (distance < closestDistance)
-            {
-                closestDistance = distance;
-                closest = interest;
-            }
-        }
-
-        if (closest != null && closest.TryReserve(this))
-        {
-            _interestTarget = closest;
-        }
+        Vector3 weights = new Vector3(_separationWeight, _alignmentWeight, _cohesionWeight);
+        return _steering.Flocking(_perception.Neighbors, _separationRadius, _viewRadius, weights);
     }
 
-    private void UpdateInteraction()
+    private void RefreshPresentation()
     {
-        _isInteracting = false;
-
-        if (_threatDetected)
-        {
-            _interactionTimer = 0f;
-            return;
-        }
-
-        if (_interestTarget == null || !_interestTarget.IsAvailableFor(this)
-            || _interestTarget.ReservedBy != this)
-        {
-            _interactionTimer = 0f;
-            return;
-        }
-
-        Vector3 targetPosition = _interestTarget.transform.position;
-        targetPosition.y = transform.position.y;
-
-        // Detenerse junto al cebo, sin superponerse con el objeto.
-        if (Vector3.Distance(transform.position, targetPosition) > Mathf.Min(_interactionRadius, _stopDistance + 0.05f))
-        {
-            _interactionTimer = 0f;
-            return;
-        }
-
-        Vector3 offset = transform.position - targetPosition;
-        if (offset.sqrMagnitude < 0.001f) offset = -transform.forward;
-        transform.position = targetPosition + offset.normalized * _stopDistance;
-        _velocity = Vector3.zero;
-        _isInteracting = true;
-
-        _interactionTimer += Time.deltaTime;
-
-        if (_interactionTimer >= _interactionInterval)
-        {
-            bool consumed = _interestTarget.Consume(this, _interactionDamage);
-            _interactionTimer = 0f;
-
-            if (consumed)
-            {
-                ReleaseInterestTarget();
-                BecomeSick();
-                // Retomar la marcha incluso si no hay vecinos cerca.
-                _velocity = transform.forward * CurrentMaxSpeed;
-            }
-        }
-    }
-    private void SetColor(Color color)
-    {
-        if (_bodyRenderer != null)
-        {
-            _bodyRenderer.material.color = color;
-        }
-    }
-
-    private void BecomeSick()
-    {
-        _sickTimer = _sickDuration;
-        _velocity = Vector3.ClampMagnitude(_velocity, CurrentMaxSpeed);
-        SetColor(_sickColor);
-    }
-
-    private void UpdateSickness()
-    {
-        if (!IsSick) return;
-
-        _sickTimer = Mathf.Max(0f, _sickTimer - Time.deltaTime);
-        if (!IsSick)
-        {
-            SetColor(_originalColor);
-        }
+        // Espejos para el Inspector y Agent.Velocity; los helpers conservan el estado real.
+        _currentHealth = _health?.CurrentHealth ?? 0f;
+        _sickTimer = _health?.SickTime ?? 0f;
+        _interestTarget = InterestTarget;
+        _isInteracting = IsInteracting;
+        _threatDetected = ThreatDetected;
+        _detectedNeighbors = _perception.VisibleNeighborCount;
+        _velocity = _movement?.Velocity ?? Vector3.zero;
+        _feedback?.Refresh(IsAlive, IsSick, _sickColor);
     }
 
     public void TakeDamage(float damage)
     {
-        if (!IsAlive || damage <= 0f)
-        {
-            return;
-        }
-
-        _currentHealth = Mathf.Max(
-            0f,
-            _currentHealth - damage
-        );
-
-        if (!IsAlive)
-        {
-            Die();
-        }
+        if (_health == null) return;
+        if (_health.TakeDamage(damage)) SuspendAgent();
+        RefreshPresentation();
     }
+
     public bool Collect()
     {
-        if (IsAlive || _collected || !gameObject.activeInHierarchy)
-        {
-            return false;
-        }
-
-        if (WorldBounds.Instance == null)
-        {
-            return false;
-        }
-
-        _collected = true;
-        // El temporizador vive en WorldBounds porque este objeto se desactiva.
-        WorldBounds.Instance.RespawnAfter(this, _respawnDelay);
-        return true;
+        return _health != null && _health.TryCollect(this, WorldBounds.Instance, _respawnDelay);
     }
 
-    private void Die()
-    {
-        ReleaseInterestTarget();
-        _sickTimer = 0f;
-        _velocity = Vector3.zero;
-
-        _threatDetected = false;
-        _detectedNeighbors = 0;
-
-        SetColor(Color.red);
-    }
     [ContextMenu("Debug/Recibir 5 de dano")]
     private void DebugTakeDamage()
     {
-        if (!Application.isPlaying)
-        {
-            return;
-        }
-
-        TakeDamage(5f);
+        if (Application.isPlaying) TakeDamage(5f);
     }
+
     private void OnDrawGizmosSelected()
     {
-        if (Application.isPlaying && _threatDetected)
-        {
-            Gizmos.color = Color.magenta;
-        }
-        else
-        {
-            Gizmos.color = Color.cyan;
-        }
-
-        Gizmos.DrawWireSphere(
-            transform.position,
-            _viewRadius
-        );
-
-        Gizmos.color = Color.red;
-
-        Gizmos.DrawWireSphere(
-            transform.position,
-            _separationRadius
-        );
-
-        if (Application.isPlaying)
-        {
-            Gizmos.color = Color.yellow;
-
-            Gizmos.DrawLine(
-                transform.position,
-                transform.position + _velocity
-            );
-        }
+        BoidFeedback.DrawGizmos(transform.position, _velocity, ThreatDetected, _viewRadius, _separationRadius);
     }
 }

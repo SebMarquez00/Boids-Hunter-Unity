@@ -1,9 +1,9 @@
-using System.Collections.Generic;
 using UnityEngine;
 
 public class InterestObject : MonoBehaviour
 {
-    public static List<InterestObject> AllObjects = new List<InterestObject>();
+    // Solo cuenta objetos activos para el límite de generación; no expone posiciones.
+    public static int ActiveCount { get; private set; }
 
     [Header("Health")]
     [SerializeField] private float _maxHealth = 10f;
@@ -17,16 +17,24 @@ public class InterestObject : MonoBehaviour
 
     private void OnEnable()
     {
+        Initialize();
+        ActiveCount++;
+    }
+
+    private void Initialize()
+    {
         _currentHealth = _maxHealth;
         _reservedBy = null;
-        AllObjects.Add(this);
     }
 
     private void OnDisable()
     {
-        AllObjects.Remove(this);
+        ActiveCount = Mathf.Max(0, ActiveCount - 1);
         _reservedBy = null;
     }
+
+    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+    private static void ResetCount() => ActiveCount = 0;
 
     public bool IsAvailableFor(BoidAgent boid)
     {

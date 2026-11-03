@@ -220,10 +220,6 @@ PrefabInstance:
       value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 6617000584310778442, guid: 0225a5f54cf1e74458936460ff163085, type: 3}
-      propertyPath: _hunter
-      value: 
-      objectReference: {fileID: 1223002008}
-    - target: {fileID: 6617000584310778442, guid: 0225a5f54cf1e74458936460ff163085, type: 3}
       propertyPath: _maxSpeed
       value: 3
       objectReference: {fileID: 0}
@@ -668,10 +664,6 @@ PrefabInstance:
       value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 6617000584310778442, guid: 0225a5f54cf1e74458936460ff163085, type: 3}
-      propertyPath: _hunter
-      value: 
-      objectReference: {fileID: 1223002008}
-    - target: {fileID: 6617000584310778442, guid: 0225a5f54cf1e74458936460ff163085, type: 3}
       propertyPath: _maxSpeed
       value: 3
       objectReference: {fileID: 0}
@@ -994,10 +986,6 @@ PrefabInstance:
       value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 6617000584310778442, guid: 0225a5f54cf1e74458936460ff163085, type: 3}
-      propertyPath: _hunter
-      value: 
-      objectReference: {fileID: 1223002008}
-    - target: {fileID: 6617000584310778442, guid: 0225a5f54cf1e74458936460ff163085, type: 3}
       propertyPath: _maxSpeed
       value: 3
       objectReference: {fileID: 0}
@@ -1158,10 +1146,6 @@ PrefabInstance:
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
       objectReference: {fileID: 0}
-    - target: {fileID: 6617000584310778442, guid: 0225a5f54cf1e74458936460ff163085, type: 3}
-      propertyPath: _hunter
-      value: 
-      objectReference: {fileID: 1223002008}
     - target: {fileID: 6617000584310778442, guid: 0225a5f54cf1e74458936460ff163085, type: 3}
       propertyPath: _maxSpeed
       value: 3
@@ -1373,10 +1357,6 @@ PrefabInstance:
       value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 6617000584310778442, guid: 0225a5f54cf1e74458936460ff163085, type: 3}
-      propertyPath: _hunter
-      value: 
-      objectReference: {fileID: 1223002008}
-    - target: {fileID: 6617000584310778442, guid: 0225a5f54cf1e74458936460ff163085, type: 3}
       propertyPath: _maxSpeed
       value: 3
       objectReference: {fileID: 0}
@@ -1492,6 +1472,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 2069724265}
+  - component: {fileID: 800000001}
   m_Layer: 0
   m_Name: Agents
   m_TagString: Untagged
@@ -1569,10 +1550,6 @@ PrefabInstance:
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
       objectReference: {fileID: 0}
-    - target: {fileID: 6617000584310778442, guid: 0225a5f54cf1e74458936460ff163085, type: 3}
-      propertyPath: _hunter
-      value: 
-      objectReference: {fileID: 1223002008}
     - target: {fileID: 6617000584310778442, guid: 0225a5f54cf1e74458936460ff163085, type: 3}
       propertyPath: _maxSpeed
       value: 3
@@ -1824,6 +1801,94 @@ PrefabInstance:
     m_AddedGameObjects: []
     m_AddedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: fe9748ed49cc59040bb83760df30ac8e, type: 3}
+--- !u!114 &800001000 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 6617000584310778442, guid: 0225a5f54cf1e74458936460ff163085, type: 3}
+  m_PrefabInstance: {fileID: 300870976}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a6004b00135c09c43a35f139ee01cd3f, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::BoidAgent
+--- !u!114 &800001001 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 6617000584310778442, guid: 0225a5f54cf1e74458936460ff163085, type: 3}
+  m_PrefabInstance: {fileID: 798418410}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a6004b00135c09c43a35f139ee01cd3f, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::BoidAgent
+--- !u!114 &800001002 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 6617000584310778442, guid: 0225a5f54cf1e74458936460ff163085, type: 3}
+  m_PrefabInstance: {fileID: 1260438401}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a6004b00135c09c43a35f139ee01cd3f, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::BoidAgent
+--- !u!114 &800001003 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 6617000584310778442, guid: 0225a5f54cf1e74458936460ff163085, type: 3}
+  m_PrefabInstance: {fileID: 1659313916}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a6004b00135c09c43a35f139ee01cd3f, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::BoidAgent
+--- !u!114 &800001004 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 6617000584310778442, guid: 0225a5f54cf1e74458936460ff163085, type: 3}
+  m_PrefabInstance: {fileID: 1817595765}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a6004b00135c09c43a35f139ee01cd3f, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::BoidAgent
+--- !u!114 &800001005 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 6617000584310778442, guid: 0225a5f54cf1e74458936460ff163085, type: 3}
+  m_PrefabInstance: {fileID: 70454163067504147}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a6004b00135c09c43a35f139ee01cd3f, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::BoidAgent
+--- !u!114 &800000001
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2069724264}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 390fd8bbd3ac444e894f3adce75e31fe, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::SimulationSetup
+  _uiPrefab: {fileID: 8771164905130730989, guid: 0b20484bcfe74f4428783df9c3e8e78b, type: 3}
+  _hunter: {fileID: 1223002008}
+  _boids:
+  - {fileID: 800001000}
+  - {fileID: 800001001}
+  - {fileID: 800001002}
+  - {fileID: 800001003}
+  - {fileID: 800001004}
+  - {fileID: 800001005}
+  _camera: {fileID: 330585545}
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0
