@@ -11,7 +11,6 @@ public class WolfChaseState : State
 
     public override void Update()
     {
-        if (TryChangeState()) return;
         if (_agent.TryCaptureHunter())
         {
             _agent.ForgetHunter();
@@ -19,18 +18,6 @@ public class WolfChaseState : State
             return;
         }
         _agent.NavigateTo(_agent.LastKnownPosition, _agent.ChaseSpeed);
-    }
-
-    private bool TryChangeState()
-    {
-        if (!_agent.HasLastKnownPosition)
-        {
-            _stateMachine.ChangeState(WolfStates.Patrol);
-            return true;
-        }
-        if (_agent.HasVisualContact) return false;
-        _stateMachine.ChangeState(WolfStates.Search);
-        return true;
     }
 
     public override void Exit() => _agent.Stop();

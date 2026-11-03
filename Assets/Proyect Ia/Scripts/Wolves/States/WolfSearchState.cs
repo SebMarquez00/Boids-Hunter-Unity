@@ -20,7 +20,6 @@ public class WolfSearchState : State
 
     public override void Update()
     {
-        if (TryChangeState()) return;
         if (WolfAgent.PlanarDistanceSquared(_searchOrigin, _agent.LastKnownPosition) > 0.000001f)
             RestartAtSnapshot();
         if (_agent.Navigation == null) return;
@@ -31,18 +30,6 @@ public class WolfSearchState : State
             return;
         }
         SearchNearbyNodes();
-    }
-
-    private bool TryChangeState()
-    {
-        if (!_agent.HasLastKnownPosition)
-        {
-            _stateMachine.ChangeState(WolfStates.Patrol);
-            return true;
-        }
-        if (!_agent.HasVisualContact) return false;
-        _stateMachine.ChangeState(WolfStates.Chase);
-        return true;
     }
 
     private void RestartAtSnapshot()

@@ -10,12 +10,42 @@ public class HunterNavigationFeedback : MonoBehaviour
     [SerializeField] private LineRenderer _threatLine;
     [SerializeField] private LineRenderer _safeZoneMarker;
     private int _shownRevision = -1;
+    private int _shownWaypoint = -1;
+    private bool _pathsVisible = true;
+    private bool _statusVisible = true;
     private WolfAgent _shownThreat;
     private float _threatUntil;
     private ScenarioZone _markedSafeZone;
 
+    public bool PathsVisible => _pathsVisible;
+    public bool StatusVisible => _statusVisible;
+
+    public void SetVisibility(bool paths, bool status)
+    {
+        _pathsVisible = paths;
+        _statusVisible = status;
+        ApplyVisibility();
+    }
+
+    private void OnEnable()
+    {
+        _shownRevision = _shownWaypoint = -1;
+        ApplyVisibility();
+    }
+
+    private void ApplyVisibility()
+    {
+        bool active = isActiveAndEnabled;
+        bool visibleInWorld = active && (_hunter == null || (!_hunter.IsDead && !_hunter.IsCompletingExit));
+        if (_pathLine != null) _pathLine.enabled = visibleInWorld && _pathsVisible;
+        if (_statusLabel != null) _statusLabel.enabled = active && _statusVisible;
+        if (_threatLine != null) _threatLine.enabled = visibleInWorld;
+        if (_safeZoneMarker != null) _safeZoneMarker.enabled = visibleInWorld;
+    }
+
     private void LateUpdate()
     {
+        ApplyVisibility();
         RefreshPath();
         RefreshStatus();
         RefreshThreat();
@@ -24,16 +54,31 @@ public class HunterNavigationFeedback : MonoBehaviour
 
     private void RefreshPath()
     {
-        if (_navigator == null || _pathLine == null || _shownRevision == _navigator.Revision) return;
-        _shownRevision = _navigator.Revision;
-        PathFollower follower = _navigator.Follower;
-        _pathLine.positionCount = follower != null && !follower.IsBlocked ? follower.Path.Count : 0;
-        for (int i = 0; i < _pathLine.positionCount; i++)
+        if (_pathLine == null) return;
+        PathFollower follower = _navigator != null ? _navigator.Follower : null;
+        if (follower == null || !_navigator.HasDestination || _navigator.WaitingForPath
+            || follower.IsBlocked || !follower.IsMoving || follower.HasArrived
+            || follower.WaypointIndex >= follower.Path.Count)
         {
-            Vector3 point = follower.Path[i];
-            point.y = 0.12f;
-            _pathLine.SetPosition(i, point);
+            _pathLine.positionCount = 0;
+            _shownRevision = _shownWaypoint = -1;
+            return;
         }
+        if (_shownRevision != _navigator.Revision || _shownWaypoint != follower.WaypointIndex)
+        {
+            _shownRevision = _navigator.Revision;
+            _shownWaypoint = follower.WaypointIndex;
+            _pathLine.positionCount = follower.Path.Count - _shownWaypoint + 1;
+            for (int i = _shownWaypoint; i < follower.Path.Count; i++)
+                _pathLine.SetPosition(i - _shownWaypoint + 1, OnFloor(follower.Path[i]));
+        }
+        _pathLine.SetPosition(0, OnFloor(follower.transform.position));
+    }
+
+    private static Vector3 OnFloor(Vector3 point)
+    {
+        point.y = 0.12f;
+        return point;
     }
 
     private void RefreshStatus()
@@ -111,8 +156,9 @@ public class HunterNavigationFeedback : MonoBehaviour
         if (_pathLine != null) _pathLine.positionCount = 0;
         if (_threatLine != null) _threatLine.positionCount = 0;
         if (_safeZoneMarker != null) _safeZoneMarker.positionCount = 0;
-        _shownRevision = -1;
+        _shownRevision = _shownWaypoint = -1;
         _shownThreat = null;
         _markedSafeZone = null;
+        ApplyVisibility();
     }
 }

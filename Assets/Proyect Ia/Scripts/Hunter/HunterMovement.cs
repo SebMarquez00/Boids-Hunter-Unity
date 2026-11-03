@@ -9,6 +9,33 @@ public class HunterMovement
         _transform = transform;
     }
 
+    public Vector3 NavigateTo(Vector3 destination, float speed, float deltaTime, AgentNavigator navigation)
+    {
+        if (navigation == null) return MoveTowards(destination, speed, deltaTime);
+        navigation.NavigateTo(destination, speed, deltaTime);
+        return navigation.Velocity;
+    }
+
+    // Solo se usa despues de confirmar la percepcion del Boid. Cada tramo directo
+    // valida el volumen del agente; si la prediccion no sirve, prueba su posicion actual.
+    public Vector3 MoveToVisibleTarget(Vector3 preferredPosition, Vector3 currentTargetPosition,
+        float speed, float deltaTime, AgentNavigator navigation)
+    {
+        if (navigation == null) return MoveTowards(preferredPosition, speed, deltaTime);
+        NavigationGraph graph = navigation.Follower != null ? navigation.Follower.Graph : null;
+        if (graph != null && graph.CanTraverse(_transform.position, preferredPosition, NavigationAccess.Hunter))
+            return MoveDirectly(preferredPosition, speed, deltaTime, navigation);
+        if (graph != null && graph.CanTraverse(_transform.position, currentTargetPosition, NavigationAccess.Hunter))
+            return MoveDirectly(currentTargetPosition, speed, deltaTime, navigation);
+        return NavigateTo(currentTargetPosition, speed, deltaTime, navigation);
+    }
+
+    private Vector3 MoveDirectly(Vector3 position, float speed, float deltaTime, AgentNavigator navigation)
+    {
+        navigation.Stop();
+        return MoveTowards(position, speed, deltaTime, navigation.TurnSpeed);
+    }
+
     public Vector3 MoveTowards(Vector3 targetPosition, float speed, float deltaTime,
         float turnSpeed = float.PositiveInfinity)
     {

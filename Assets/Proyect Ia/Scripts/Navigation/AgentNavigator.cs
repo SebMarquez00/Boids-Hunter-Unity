@@ -51,7 +51,9 @@ public class AgentNavigator : MonoBehaviour
         }
 
         _follower.Speed = speed;
-        if (firstRequest || (_timeUntilRepath <= 0f && NeedsNewPath())) CalculatePath();
+        bool nextDestination = _follower.HasArrived
+            && PlanarDistanceSquared(_follower.transform.position, Destination) > ArrivalTolerance * ArrivalTolerance;
+        if (firstRequest || nextDestination || (_timeUntilRepath <= 0f && NeedsNewPath())) CalculatePath();
         if (WaitingForPath) return;
 
         Vector3 previousPosition = _follower.transform.position;

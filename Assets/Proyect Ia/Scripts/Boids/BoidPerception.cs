@@ -91,7 +91,7 @@ public sealed class BoidPerception
         float closestDistance = float.MaxValue;
         foreach (HunterAgent candidate in _hunterCandidates)
         {
-            if (candidate == null || !candidate.isActiveAndEnabled) continue;
+            if (candidate == null || !candidate.IsAvailableToWolves) continue;
             float radius = viewRadius + (candidate == previousThreat ? escapeMargin : 0f);
             Vector3 offset = candidate.transform.position - position;
             offset.y = 0f;

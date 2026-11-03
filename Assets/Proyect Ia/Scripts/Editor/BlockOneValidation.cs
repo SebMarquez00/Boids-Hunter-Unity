@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Reflection;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
@@ -30,8 +31,9 @@ public static class BlockOneValidation
             // HideAndDontSave retira colliders de la escena fisica: usamos una escena desechable.
             temporaryScene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Additive);
             SceneManager.SetActiveScene(temporaryScene);
-            Action[] tests = { ValidateProximity, ValidateBoidPerception, ValidateHunterPerception,
-                ValidateBounds, ValidateHealth, ValidateColors, ValidateInteraction };
+            Action[] tests = { ValidateProximity, ValidateBoidPerception, ValidateUnavailableHunter,
+                ValidateHunterPerception, ValidateBounds, ValidateHealth, ValidateColors,
+                ValidateInteraction, ValidateInteractionBounds };
             foreach (Action test in tests)
             {
                 try { test(); }
@@ -145,6 +147,36 @@ public static class BlockOneValidation
         Check(!perception.CanSee(far, Origin, 4f), "Debe perder un Boid al alejarse, incluso entre consultas.");
     }
 
+    private static void ValidateUnavailableHunter()
+    {
+        BoidAgent owner = CreateBoid("Amenaza capturada", Vector3.zero);
+        HunterAgent hunter = CreateObject("Cazador capturado", Vector3.forward * 2f).AddComponent<HunterAgent>();
+        AgentNavigator navigation = hunter.gameObject.AddComponent<AgentNavigator>();
+        ScenarioReferences scenario = CreateObject("Escenario temporal", Vector3.right * 20f).AddComponent<ScenarioReferences>();
+        using (SerializedObject data = new SerializedObject(hunter))
+        {
+            data.FindProperty("_navigation").objectReferenceValue = navigation;
+            data.FindProperty("_scenario").objectReferenceValue = scenario;
+            data.FindProperty("_respawnTime").floatValue = 0.1f;
+            data.ApplyModifiedPropertiesWithoutUndo();
+        }
+        hunter.Initialize();
+        BoidPerception perception = new BoidPerception();
+        Refresh(perception, owner);
+        Check(perception.Threat == hunter, "El Boid debe percibir al Cazador disponible de la fixture.");
+        Check(hunter.RequestCapture(), "La fixture debe comunicar una captura valida al Cazador.");
+        Refresh(perception, owner, 0f);
+        Check(hunter.gameObject.activeInHierarchy && !hunter.IsAvailableToWolves && perception.Threat == null,
+            "Una captura pendiente debe retirar la amenaza inmediatamente, sin otro escaneo ni desactivar el GameObject.");
+        hunter.UpdateAgent(0.02f);
+        Refresh(perception, owner, 0f);
+        Check(hunter.IsDead && perception.Threat == null, "Un Cazador en Dead no debe mantener al Boid huyendo.");
+        hunter.UpdateAgent(0.1f);
+        Refresh(perception, owner, 0f);
+        Check(!hunter.IsDead && hunter.IsAvailableToWolves && perception.Threat == hunter,
+            "La reaparicion debe permitir percibir nuevamente al Cazador disponible.");
+    }
+
     private static void ValidateBounds()
     {
         GameObject area = CreateObject("Coto trasladado", new Vector3(50f, 0f, 70f));
@@ -208,7 +240,7 @@ public static class BlockOneValidation
         BoidAgent other = CreateBoid("Reserva B", Vector3.right * 2f);
         InterestObject interest = CreateObject("Interes", Vector3.forward * 0.5f).AddComponent<InterestObject>();
         // Inicializa el objeto sin incrementar manualmente el contador global de OnEnable.
-        interest.SendMessage("Initialize");
+        InvokeFixtureMethod(interest, "Initialize");
         BoidPerception perception = new BoidPerception();
         BoidMovement movement = new BoidMovement(owner.transform);
         BoidInteraction interaction = new BoidInteraction(owner, movement);
@@ -234,13 +266,35 @@ public static class BlockOneValidation
         Check(interaction.Target == null && !interaction.IsInteracting && interest.ReservedBy == null,
             "La muerte del propietario debe cancelar la interaccion sin dejar reserva.");
 
-        owner.SendMessage("OnEnable");
+        InvokeFixtureMethod(owner, "ResetAgent");
         interaction.UpdateTarget(perception, 3f, false);
         Check(interest.ReservedBy == owner, "Tras reiniciarse el Boid debe poder reservar nuevamente.");
         owner.gameObject.SetActive(false);
         interaction.Tick(1.1f, 0.65f, 1f, 10f, 0f);
         Check(interaction.Target == null && !interaction.IsInteracting && interest.ReservedBy == null,
             "Desactivar al propietario debe cancelar la interaccion y liberar el objeto.");
+    }
+
+    private static void ValidateInteractionBounds()
+    {
+        GameObject area = CreateObject("Coto trasladado de interaccion", new Vector3(50f, 0f, 70f));
+        area.SetActive(false);
+        WorldBounds bounds = area.AddComponent<WorldBounds>();
+        Vector3 center = area.transform.position;
+        BoidAgent owner = CreateBoid("Interaccion junto al borde", Vector3.zero);
+        BoidMovement movement = new BoidMovement(owner.transform);
+        for (int sign = -1; sign <= 1; sign += 2)
+        {
+            owner.transform.position = center + new Vector3(sign * 7.95f, 2f, sign * 7.95f);
+            movement.InitializeVelocity(3f);
+            Vector3 interest = center + new Vector3(sign * 7.9f, 0f, sign * 7.9f);
+            movement.StayBeside(interest, 0.65f, bounds);
+            Vector3 expected = center + new Vector3(sign * 8f, 2f, sign * 8f);
+            Check(Vector3.Distance(owner.transform.position, expected) < 0.002f,
+                "Interactuar en una esquina debe conservar al Boid dentro del coto, junto al borde cercano y a la misma altura.");
+            Check(bounds.OutOfBounds(owner.transform.position) == owner.transform.position && movement.Velocity == Vector3.zero,
+                "El Boid debe permanecer detenido dentro de los bounds durante la interaccion.");
+        }
     }
 
     private static GameObject CreateObject(string name, Vector3 offset)
@@ -256,8 +310,7 @@ public static class BlockOneValidation
     private static BoidAgent CreateBoid(string name, Vector3 offset, bool alive = true)
     {
         BoidAgent boid = CreateObject(name, offset).AddComponent<BoidAgent>();
-        boid.SendMessage("Awake");
-        boid.SendMessage("OnEnable");
+        InvokeFixtureMethod(boid, "ResetAgent");
         if (!alive) boid.TakeDamage(float.MaxValue);
         return boid;
     }
@@ -279,6 +332,14 @@ public static class BlockOneValidation
     {
         if (!condition) throw new InvalidOperationException("Bloque 1: " + message);
         _checks++;
+    }
+
+    private static void InvokeFixtureMethod(Component target, string methodName)
+    {
+        MethodInfo method = target.GetType().GetMethod(methodName, BindingFlags.Instance | BindingFlags.NonPublic);
+        if (method == null)
+            throw new MissingMethodException("Fixture: no existe " + target.GetType().Name + "." + methodName + ".");
+        method.Invoke(target, null);
     }
 
     private static void DestroyCreatedObjects()
