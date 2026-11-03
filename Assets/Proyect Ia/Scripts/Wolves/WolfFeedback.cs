@@ -143,7 +143,7 @@ public class WolfFeedback : MonoBehaviour
             _shownRevision = -1;
             return;
         }
-        SetColor(_pathLine, Color.Lerp(color, Color.gray, 0.35f));
+        SetColor(_pathLine, Color.Lerp(color, Color.black, 0.2f));
         if (_shownRevision != navigation.Revision || _shownWaypoint != follower.WaypointIndex)
         {
             _shownRevision = navigation.Revision;
@@ -200,7 +200,7 @@ public class WolfFeedback : MonoBehaviour
             target.SetPosition(i + 1, OnFloor(eye + direction * distance, 0.06f));
         }
         target.SetPosition(ViewSegments + 2, OnFloor(eye, 0.06f));
-        SetColor(target, Color.Lerp(color, new Color(0.45f, 0.48f, 0.5f), 0.6f));
+        SetColor(target, Color.Lerp(color, Color.black, 0.2f));
     }
 
     private void PlayHowl()

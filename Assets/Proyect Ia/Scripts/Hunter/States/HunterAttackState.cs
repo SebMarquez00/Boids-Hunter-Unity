@@ -1,5 +1,3 @@
-using UnityEngine;
-
 public class HunterAttackState : State
 {
     private readonly HunterAgent _agent;
@@ -12,7 +10,6 @@ public class HunterAttackState : State
     public override void Enter()
     {
         if (_agent.UsesNavigation) _agent.SetTarget(_agent.FindClosestAliveBoid());
-        Debug.Log("Hunter: Attack");
     }
 
     public override void Update()

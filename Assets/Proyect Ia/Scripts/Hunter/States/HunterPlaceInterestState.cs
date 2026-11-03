@@ -1,5 +1,3 @@
-using UnityEngine;
-
 public class HunterPlaceInterestState : State
 {
     private readonly HunterAgent _agent;
@@ -16,7 +14,6 @@ public class HunterPlaceInterestState : State
     {
         _timer = 0f;
         _agent.Stop();
-        Debug.Log("Hunter: colocando objeto");
     }
 
     public override void Update()

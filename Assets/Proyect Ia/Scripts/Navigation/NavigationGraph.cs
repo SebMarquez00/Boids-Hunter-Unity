@@ -18,12 +18,6 @@ public class NavigationGraph : MonoBehaviour
     public float SamplingHeight => _samplingHeight;
     public LayerMask ObstacleMask => _obstacleMask;
 
-    // El generador de Editor guarda los nodos y sus conexiones en la escena.
-    public void ReplaceNodes(List<NavigationNode> nodes)
-    {
-        _nodes = nodes ?? new List<NavigationNode>();
-    }
-
     public bool CanUseNode(int index, NavigationAccess access)
     {
         return index >= 0 && index < _nodes.Count && _nodes[index] != null

@@ -301,7 +301,6 @@ public class HunterAgent : Agent
         if (!_combat.TryMeleeAttack(_meleeDamage)) return false;
 
         _attackTimer = 0f;
-        Debug.Log("Hunter: ataque cuerpo a cuerpo");
         return true;
     }
 
@@ -316,7 +315,6 @@ public class HunterAgent : Agent
         if (!hit) return;
 
         _attackTimer = 0f;
-        Debug.Log("Hunter: impacto a distancia");
     }
 
     public void ClearProjectile()

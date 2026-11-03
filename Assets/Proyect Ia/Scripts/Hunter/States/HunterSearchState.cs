@@ -18,7 +18,6 @@ public class HunterSearchState : State
         _agent.SetTarget(null);
         _hasDestination = false;
         _selectionRetry = 0f;
-        Debug.Log("Hunter: Search");
     }
 
     public override void Update()

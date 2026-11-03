@@ -1,5 +1,3 @@
-using UnityEngine;
-
 public class HunterExitState : State
 {
     private readonly HunterAgent _agent;
@@ -15,7 +13,6 @@ public class HunterExitState : State
         _agent.ClearProjectile();
         _agent.SetTarget(null);
         _agent.SetGatherProgress(0f);
-        Debug.Log("Hunter: Exit");
     }
 
     public override void Update()

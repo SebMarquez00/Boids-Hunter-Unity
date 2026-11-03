@@ -203,7 +203,7 @@ LineRenderer:
   m_Positions: []
   m_Parameters:
     serializedVersion: 3
-    widthMultiplier: 0.06
+    widthMultiplier: 0.13
     widthCurve:
       serializedVersion: 2
       m_Curve:
@@ -1105,7 +1105,7 @@ LineRenderer:
   m_Positions: []
   m_Parameters:
     serializedVersion: 3
-    widthMultiplier: 0.035
+    widthMultiplier: 0.13
     widthCurve:
       serializedVersion: 2
       m_Curve:
@@ -1388,7 +1388,7 @@ LineRenderer:
   m_Positions: []
   m_Parameters:
     serializedVersion: 3
-    widthMultiplier: 0.06
+    widthMultiplier: 0.13
     widthCurve:
       serializedVersion: 2
       m_Curve:
@@ -7530,7 +7530,7 @@ LineRenderer:
   m_Positions: []
   m_Parameters:
     serializedVersion: 3
-    widthMultiplier: 0.035
+    widthMultiplier: 0.13
     widthCurve:
       serializedVersion: 2
       m_Curve:
@@ -8476,7 +8476,7 @@ LineRenderer:
   m_Positions: []
   m_Parameters:
     serializedVersion: 3
-    widthMultiplier: 0.035
+    widthMultiplier: 0.13
     widthCurve:
       serializedVersion: 2
       m_Curve:
@@ -8931,7 +8931,7 @@ LineRenderer:
   m_Positions: []
   m_Parameters:
     serializedVersion: 3
-    widthMultiplier: 0.06
+    widthMultiplier: 0.13
     widthCurve:
       serializedVersion: 2
       m_Curve:
@@ -14804,7 +14804,7 @@ LineRenderer:
   m_Positions: []
   m_Parameters:
     serializedVersion: 3
-    widthMultiplier: 0.06
+    widthMultiplier: 0.13
     widthCurve:
       serializedVersion: 2
       m_Curve:
@@ -16573,7 +16573,7 @@ LineRenderer:
   m_Positions: []
   m_Parameters:
     serializedVersion: 3
-    widthMultiplier: 0.035
+    widthMultiplier: 0.13
     widthCurve:
       serializedVersion: 2
       m_Curve:

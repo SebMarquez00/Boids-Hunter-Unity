@@ -161,12 +161,6 @@ public class BoidAgent : Agent
         return _health != null && _health.TryCollect(this, WorldBounds.Instance, _respawnDelay);
     }
 
-    [ContextMenu("Debug/Recibir 5 de dano")]
-    private void DebugTakeDamage()
-    {
-        if (Application.isPlaying) TakeDamage(5f);
-    }
-
     private void OnDrawGizmosSelected()
     {
         BoidFeedback.DrawGizmos(transform.position, _velocity, ThreatDetected, _viewRadius, _separationRadius);

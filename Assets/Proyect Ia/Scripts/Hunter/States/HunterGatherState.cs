@@ -1,5 +1,3 @@
-using UnityEngine;
-
 public class HunterGatherState : State
 {
     private readonly HunterAgent _agent;
@@ -14,7 +12,6 @@ public class HunterGatherState : State
     {
         if (_agent.UsesNavigation) _agent.SetTarget(_agent.FindClosestDeadBoid());
         ResetProgress();
-        Debug.Log("Hunter: Gather");
     }
 
     public override void Update()
@@ -43,11 +40,7 @@ public class HunterGatherState : State
         _agent.SetGatherProgress(_timer);
         if (_timer < _agent.GatherDuration) return;
 
-        if (target.Collect())
-        {
-            _agent.RegisterGather();
-            Debug.Log("Hunter: recoleccion completada");
-        }
+        if (target.Collect()) _agent.RegisterGather();
         _stateMachine.ChangeState(_agent.ReturnWorkState);
     }
 

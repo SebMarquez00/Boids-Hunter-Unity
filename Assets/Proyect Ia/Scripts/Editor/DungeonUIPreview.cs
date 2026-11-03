@@ -9,6 +9,7 @@ using Object = UnityEngine.Object;
 [InitializeOnLoad]
 public static class DungeonUIPreview
 {
+    private const string ScenePath = "Assets/Proyect Ia/Scenes/DungeonSimulation.unity";
     private static Scene _scene;
     private static DungeonSimulationSetup _setup;
     private static DungeonSimulationUI _ui;
@@ -17,7 +18,6 @@ public static class DungeonUIPreview
     private static readonly List<WolfFeedback> Sources = new List<WolfFeedback>();
     private static readonly List<LineRenderer> VisionLines = new List<LineRenderer>();
     private static bool _resolved, _saving;
-    private static int _suspensions;
     private static double _nextRefresh;
 
     static DungeonUIPreview()
@@ -33,21 +33,9 @@ public static class DungeonUIPreview
         EditorSceneManager.sceneSaved += OnSceneSaved;
     }
 
-    public static void Suspend()
-    {
-        _suspensions++;
-        Invalidate();
-    }
-
-    public static void Resume()
-    {
-        _suspensions = Mathf.Max(0, _suspensions - 1);
-        Invalidate();
-    }
-
     private static void UpdatePreview()
     {
-        if (_suspensions > 0 || _saving || EditorApplication.isPlayingOrWillChangePlaymode
+        if (_saving || EditorApplication.isPlayingOrWillChangePlaymode
             || EditorApplication.isCompiling || EditorApplication.isUpdating)
         {
             Clear();
@@ -74,7 +62,7 @@ public static class DungeonUIPreview
         _scene = scene;
         _resolved = true;
         _setup = null;
-        if (!scene.IsValid() || !scene.isLoaded || scene.path != DungeonMapBuilder.ScenePath) return;
+        if (!scene.IsValid() || !scene.isLoaded || scene.path != ScenePath) return;
         foreach (GameObject root in scene.GetRootGameObjects())
         {
             DungeonSimulationSetup candidate = root.GetComponentInChildren<DungeonSimulationSetup>();

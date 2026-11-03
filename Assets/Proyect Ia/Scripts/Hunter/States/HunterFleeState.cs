@@ -25,7 +25,6 @@ public class HunterFleeState : State
         IsWaiting = false;
         WaitElapsed = 0f;
         SelectSafeZone();
-        Debug.Log("Hunter: Flee");
     }
 
     public override void Update()

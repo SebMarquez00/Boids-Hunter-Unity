@@ -10,10 +10,7 @@ public class HunterPatrolState : State
         _agent = agent;
     }
 
-    public override void Enter()
-    {
-        Debug.Log("Hunter: Patrol");
-    }
+    public override void Enter() { }
 
     public override void Update()
     {
