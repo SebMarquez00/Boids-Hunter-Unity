@@ -13,7 +13,12 @@ public static class WolfValidation
     private static int _checks;
 
     [MenuItem("Tools/IA/Entrega 2/Validar lobos")]
-    public static void Run()
+    public static void Run() => RunValidation(false);
+
+    [MenuItem("Tools/IA/Entrega 2/Validar comunicacion de lobos")]
+    public static void RunCommunicationRegression() => RunValidation(true);
+
+    private static void RunValidation(bool communicationOnly)
     {
         Require(!EditorApplication.isPlayingOrWillChangePlaymode, "Esta prueba requiere Edit Mode.");
         Scene original = SceneManager.GetActiveScene();
@@ -28,19 +33,26 @@ public static class WolfValidation
         _checks = 0;
         try
         {
-            ValidateScene(original, graph, scenario, hunter);
+            if (!communicationOnly) ValidateScene(original, graph, scenario, hunter);
             temporary = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Additive);
             SceneManager.SetActiveScene(temporary);
             Physics.SyncTransforms();
-            ValidatePerception(graph);
-            ValidateOccludedPatrol(graph, scenario);
-            ValidateMemoryAndSafeZone(graph, scenario);
-            ValidateReacquisition(graph, scenario);
-            ValidateCaptureRequest(graph, scenario);
+            if (!communicationOnly)
+            {
+                ValidatePerception(graph);
+                ValidateOccludedPatrol(graph, scenario);
+                ValidateMemoryAndSafeZone(graph, scenario);
+                ValidateStateContinuity(graph, scenario);
+                ValidateReacquisition(graph, scenario);
+                ValidateCaptureRequest(graph, scenario);
+            }
+            ValidateCommunication(graph, scenario);
             Require(graph.Nodes.Count == nodeCount && original.isDirty == wasDirty,
                 "Las pruebas no deben modificar el grafo ni la escena original.");
-            Debug.Log($"Lobos: {_checks} comprobaciones correctas; configuracion, FoV/LoS, patrulla A*, " +
-                "alertas snapshot, busqueda, refugios y solicitud de captura validados.");
+            Debug.Log(communicationOnly
+                ? $"Comunicacion de lobos: {_checks} comprobaciones correctas; avisos pendientes, vision vigente, cancelacion y ausencia de rebroadcast."
+                : $"Lobos: {_checks} comprobaciones correctas; configuracion, FoV/LoS, patrulla A*, " +
+                    "alertas snapshot, continuidad de estados, busqueda, refugios y solicitud de captura validados.");
         }
         finally
         {
@@ -212,6 +224,60 @@ public static class WolfValidation
         Require(!observer.CanSeeHunter(), "Un objetivo inactivo no debe ser detectable.");
     }
 
+    private static void ValidateStateContinuity(NavigationGraph graph, ScenarioReferences scenario)
+    {
+        Vector3 snapshot = Point(graph, 56.5f, 25.5f);
+        HunterAgent target = CreateHunter(graph, scenario, snapshot);
+        WolfPack pack = new GameObject("Manada temporal de continuidad").AddComponent<WolfPack>();
+        WolfAgent observer = CreateWolf(graph, scenario, target, pack, Point(graph, 52.5f, 25.5f), Vector3.right);
+        WolfAgent receiver = CreateWolf(graph, scenario, target, pack, Point(graph, 52.5f, 29.5f), Vector3.left);
+        Require(observer.CanSeeHunter() && !receiver.CanSeeHunter(),
+            "La continuidad requiere un observador con vision y un receptor fuera de su FoV.");
+
+        Vector3 previous = observer.transform.position;
+        observer.UpdateAgent(Step);
+        RequireMovedInState(observer, previous, "WolfChaseState", observer.ChaseSpeed, Step,
+            "La deteccion debe iniciar Chase y moverse en ese mismo tick.");
+        previous = receiver.transform.position;
+        receiver.UpdateAgent(Step);
+        RequireMovedInState(receiver, previous, "WolfSearchState", receiver.SearchSpeed, Step,
+            "Una alerta debe iniciar Search y recorrer el camino en ese mismo tick.");
+        Require(!receiver.HasVisualContact && receiver.HasLastKnownPosition && Near(receiver.LastKnownPosition, snapshot),
+            "El movimiento inmediato del receptor debe usar el snapshot, sin inventar contacto visual.");
+
+        target.transform.position = Point(graph, 50.5f, 25.5f);
+        Require(!observer.CanSeeHunter(), "El objetivo desplazado a la espalda debe quedar fuera del FoV.");
+        previous = observer.transform.position;
+        observer.UpdateAgent(Step);
+        RequireMovedInState(observer, previous, "WolfSearchState", observer.SearchSpeed, Step,
+            "Perder vision debe continuar hacia la ultima observacion sin un tick inmovil.");
+        Require(!observer.HasVisualContact && Near(observer.LastKnownPosition, snapshot)
+            && Near(observer.Navigation.Destination, snapshot),
+            "Search no debe adoptar la posicion actual del objetivo oculto.");
+
+        target.transform.position = snapshot;
+        previous = observer.transform.position;
+        observer.UpdateAgent(0.1f);
+        RequireMovedInState(observer, previous, "WolfChaseState", observer.ChaseSpeed, 0.1f,
+            "Readquirir vision debe retomar Chase sin un tick inmovil.");
+
+        target.transform.position = scenario.SafeZones[0].transform.position;
+        previous = observer.transform.position;
+        observer.UpdateAgent(Step);
+        RequireMovedInState(observer, previous, "WolfPatrolState", observer.PatrolSpeed, Step,
+            "Entrar el objetivo a un refugio debe retomar el patrullaje en ese mismo tick.");
+        Require(!observer.HasVisualContact && !observer.HasLastKnownPosition,
+            "La continuidad no debe conservar el objetivo ni la memoria al entrar al refugio.");
+    }
+
+    private static void RequireMovedInState(WolfAgent wolf, Vector3 previous, string state, float speed,
+        float deltaTime, string message)
+    {
+        float distance = PlanarDistance(previous, wolf.transform.position);
+        Require(wolf.CurrentStateName == state && distance > Tolerance && distance <= speed * deltaTime + Tolerance,
+            message);
+    }
+
     private static void ValidateReacquisition(NavigationGraph graph, ScenarioReferences scenario)
     {
         Vector3 snapshot = Point(graph, 56.5f, 25.5f);
@@ -249,6 +315,190 @@ public static class WolfValidation
             "Entrar y salir de un refugio no debe reiniciar el cooldown ni producir aullidos consecutivos.");
         wolf.UpdateAgent(1.3f);
         Require(wolf.HowlCount == 3, "La readquisicion tras abandonar el refugio debe anunciarse cuando corresponda.");
+    }
+
+    private static void ValidateCommunication(NavigationGraph graph, ScenarioReferences scenario)
+    {
+        List<string> failures = new List<string>();
+        RunCommunicationCase("avistamiento breve durante cooldown", () => ValidateBriefSighting(graph, scenario), failures);
+        RunCommunicationCase("recepcion con vision cacheada", () => ValidateStaleVisualContact(graph, scenario), failures);
+        RunCommunicationCase("snapshot recibido reemplaza aviso pendiente", () => ValidateSupersededSighting(graph, scenario), failures);
+        RunCommunicationCase("cancelacion por refugio", () => ValidatePendingCancellation(graph, scenario, true), failures);
+        RunCommunicationCase("cancelacion por captura", () => ValidatePendingCancellation(graph, scenario, false), failures);
+        RunCommunicationCase("observacion propia todavia visible", () => ValidateCurrentVisualContact(graph, scenario), failures);
+        Require(failures.Count == 0, "Regresiones de comunicacion: " + string.Join(" | ", failures));
+    }
+
+    private static void RunCommunicationCase(string name, Action test, List<string> failures)
+    {
+        try
+        {
+            test();
+            Debug.Log("Comunicacion de lobos OK: " + name);
+        }
+        catch (Exception exception)
+        {
+            failures.Add(name + ": " + exception.Message);
+            Debug.LogWarning("Comunicacion de lobos FALLA: " + name + ": " + exception.Message);
+        }
+    }
+
+    private static void ValidateBriefSighting(NavigationGraph graph, ScenarioReferences scenario)
+    {
+        Vector3 first = Point(graph, 56.5f, 25.5f);
+        Vector3 brief = Point(graph, 57.5f, 25.5f);
+        HunterAgent target = CreateHunter(graph, scenario, first);
+        WolfPack pack = new GameObject("Manada temporal de aviso pendiente").AddComponent<WolfPack>();
+        WolfAgent observer = CreateStationaryWolf(graph, scenario, target, pack, Point(graph, 52.5f, 25.5f), Vector3.right);
+        WolfAgent receiver = CreateStationaryWolf(graph, scenario, target, pack, Point(graph, 52.5f, 29.5f), Vector3.left);
+        observer.UpdateAgent(Step);
+        Require(observer.HowlCount == 1 && receiver.ReceivedAlertCount == 1 && Near(receiver.LastKnownPosition, first),
+            "La primera observacion debe comunicarse una vez.");
+        target.transform.position = brief;
+        observer.UpdateAgent(0.2f);
+        Require(observer.HasVisualContact && observer.HowlCount == 1 && Near(observer.LastKnownPosition, brief),
+            "El nuevo punto debe observarse sin omitir el cooldown.");
+        GameObject wall = CreateCommunicationWall(graph);
+        try
+        {
+            observer.UpdateAgent(0.2f);
+            Require(!observer.HasVisualContact && !observer.CanSeeHunter(), "La pared debe cortar la vision antes del proximo aullido.");
+            target.transform.position = Point(graph, 58.5f, 25.5f);
+            observer.UpdateAgent(1.2f);
+            receiver.UpdateAgent(Step);
+            Require(observer.HowlCount == 2 && receiver.ReceivedAlertCount == 2
+                && Near(observer.LastKnownPosition, brief) && Near(receiver.LastKnownPosition, brief),
+                "El aviso aplazado debe emitir la ultima posicion realmente vista aunque el objetivo siga oculto.");
+            observer.UpdateAgent(3f);
+            receiver.UpdateAgent(3f);
+            Require(observer.HowlCount == 2 && receiver.HowlCount == 0 && receiver.ReceivedAlertCount == 2,
+                "Un snapshot oculto no debe repetirse ni generar rebroadcast del receptor.");
+        }
+        finally { Object.DestroyImmediate(wall); Physics.SyncTransforms(); }
+    }
+
+    private static void ValidateStaleVisualContact(NavigationGraph graph, ScenarioReferences scenario)
+    {
+        Vector3 first = Point(graph, 56.5f, 25.5f);
+        Vector3 latest = Point(graph, 57.5f, 26.5f);
+        HunterAgent target = CreateHunter(graph, scenario, first);
+        WolfPack pack = new GameObject("Manada temporal de vision cacheada").AddComponent<WolfPack>();
+        WolfAgent receiver = CreateStationaryWolf(graph, scenario, target, pack, Point(graph, 52.5f, 25.5f), Vector3.right);
+        WolfAgent observer = CreateStationaryWolf(graph, scenario, target, pack, Point(graph, 58.5f, 29.5f), Vector3.back);
+        receiver.UpdateAgent(Step);
+        target.transform.position = latest;
+        GameObject wall = CreateCommunicationWall(graph);
+        try
+        {
+            Require(receiver.HasVisualContact && !receiver.CanSeeHunter() && observer.CanSeeHunter(),
+                "La fixture debe reproducir la alerta antes del Update del receptor que perdio LoS.");
+            observer.UpdateAgent(Step);
+            Require(receiver.ReceivedAlertCount == 1 && !receiver.HasVisualContact && Near(receiver.LastKnownPosition, latest),
+                "ReceiveAlert debe revalidar LoS y aceptar el snapshot nuevo en ese mismo evento.");
+            receiver.UpdateAgent(Step);
+            Require(receiver.CurrentStateName == "WolfSearchState" && Near(receiver.Navigation.Destination, latest),
+                "El siguiente Update debe buscar la informacion recibida y no el punto visible del frame anterior.");
+        }
+        finally { Object.DestroyImmediate(wall); Physics.SyncTransforms(); }
+    }
+
+    private static void ValidateSupersededSighting(NavigationGraph graph, ScenarioReferences scenario)
+    {
+        HunterAgent target = CreateHunter(graph, scenario, Point(graph, 56.5f, 25.5f));
+        WolfPack pack = new GameObject("Manada temporal de snapshot reemplazado").AddComponent<WolfPack>();
+        WolfAgent receiver = CreateStationaryWolf(graph, scenario, target, pack, Point(graph, 52.5f, 25.5f), Vector3.right);
+        WolfAgent observer = CreateStationaryWolf(graph, scenario, target, pack, Point(graph, 58.5f, 29.5f), Vector3.back);
+        receiver.UpdateAgent(Step);
+        target.transform.position = Point(graph, 57.5f, 25.5f);
+        receiver.UpdateAgent(0.2f);
+        Require(receiver.HowlCount == 1 && receiver.HasVisualContact, "Debe existir un aviso propio aplazado por cooldown.");
+        GameObject wall = CreateCommunicationWall(graph);
+        try
+        {
+            receiver.UpdateAgent(0.2f);
+            Vector3 latest = Point(graph, 57.5f, 26.5f);
+            target.transform.position = latest;
+            observer.UpdateAgent(Step);
+            Require(!receiver.HasVisualContact && Near(receiver.LastKnownPosition, latest),
+                "El receptor sin vision debe adoptar el snapshot nuevo del otro lobo.");
+            observer.transform.forward = Vector3.forward;
+            for (int i = 0; i < 3; i++)
+            {
+                receiver.UpdateAgent(2f);
+                observer.UpdateAgent(2f);
+            }
+            Require(receiver.HowlCount == 1 && observer.HowlCount == 1
+                && receiver.ReceivedAlertCount == 1 && observer.ReceivedAlertCount == 1
+                && Near(receiver.LastKnownPosition, latest) && Near(observer.LastKnownPosition, latest),
+                "El aviso propio anterior debe cancelarse: ni sobrescribir la memoria nueva ni reenviar alertas recibidas.");
+        }
+        finally { Object.DestroyImmediate(wall); Physics.SyncTransforms(); }
+    }
+
+    private static void ValidatePendingCancellation(NavigationGraph graph, ScenarioReferences scenario, bool refuge)
+    {
+        HunterAgent target = CreateHunter(graph, scenario, Point(graph, 56.5f, 25.5f));
+        WolfPack pack = new GameObject("Manada temporal de cancelacion").AddComponent<WolfPack>();
+        WolfAgent wolf = CreateStationaryWolf(graph, scenario, target, pack, Point(graph, 52.5f, 25.5f), Vector3.right);
+        wolf.UpdateAgent(Step);
+        target.transform.position = Point(graph, 57.5f, 25.5f);
+        wolf.UpdateAgent(0.2f);
+        Require(wolf.HowlCount == 1 && wolf.HasVisualContact, "La cancelacion requiere un avistamiento pendiente.");
+        if (refuge) target.transform.position = scenario.SafeZones[0].transform.position;
+        else Require(target.RequestCapture(), "La fixture debe poder solicitar una captura real sin forzar la FSM.");
+        wolf.UpdateAgent(2f);
+        Require(wolf.HowlCount == 1 && !wolf.HasLastKnownPosition && !wolf.HasVisualContact
+            && wolf.CurrentStateName == "WolfPatrolState", "Refugio o captura deben borrar memoria y cancelar el aullido pendiente.");
+        if (refuge)
+        {
+            target.transform.position = Point(graph, 58.5f, 25.5f);
+            wolf.transform.forward = Vector3.left;
+        }
+        wolf.UpdateAgent(2f);
+        Require(wolf.HowlCount == 1 && !wolf.HasLastKnownPosition,
+            "El aviso cancelado no debe reaparecer mas tarde sin un nuevo avistamiento.");
+    }
+
+    private static void ValidateCurrentVisualContact(NavigationGraph graph, ScenarioReferences scenario)
+    {
+        Vector3 first = Point(graph, 56.5f, 25.5f);
+        HunterAgent target = CreateHunter(graph, scenario, first);
+        WolfPack pack = new GameObject("Manada temporal de vision vigente").AddComponent<WolfPack>();
+        WolfAgent receiver = CreateStationaryWolf(graph, scenario, target, pack, Point(graph, 52.5f, 25.5f), Vector3.right);
+        WolfAgent observer = CreateStationaryWolf(graph, scenario, target, pack, Point(graph, 58.5f, 29.5f), Vector3.back);
+        receiver.UpdateAgent(Step);
+        target.transform.position = Point(graph, 57.5f, 26.5f);
+        Require(receiver.CanSeeHunter() && observer.CanSeeHunter(), "Ambos lobos deben conservar vision real en esta fixture.");
+        observer.UpdateAgent(Step);
+        Require(receiver.HasVisualContact && Near(receiver.LastKnownPosition, first),
+            "Una alerta no debe sustituir la observacion propia mientras la vision realmente siga vigente.");
+        receiver.UpdateAgent(Step);
+        Require(receiver.HasVisualContact && Near(receiver.LastKnownPosition, target.transform.position),
+            "El sensor propio debe seguir actualizando al objetivo visible normalmente.");
+    }
+
+    private static WolfAgent CreateStationaryWolf(NavigationGraph graph, ScenarioReferences scenario, HunterAgent hunter,
+        WolfPack pack, Vector3 position, Vector3 forward)
+    {
+        WolfAgent wolf = CreateWolf(graph, scenario, hunter, pack, position, forward);
+        using (SerializedObject data = new SerializedObject(wolf))
+        {
+            data.FindProperty("_patrolSpeed").floatValue = 0f;
+            data.FindProperty("_chaseSpeed").floatValue = 0f;
+            data.FindProperty("_searchSpeed").floatValue = 0f;
+            data.ApplyModifiedPropertiesWithoutUndo();
+        }
+        return wolf;
+    }
+
+    private static GameObject CreateCommunicationWall(NavigationGraph graph)
+    {
+        GameObject wall = new GameObject("Pared temporal de comunicacion", typeof(BoxCollider));
+        wall.layer = LayerMask.NameToLayer("MapObstacle");
+        wall.transform.position = Point(graph, 54.5f, 25.5f);
+        wall.GetComponent<BoxCollider>().size = new Vector3(0.2f, 2f, 4f);
+        Physics.SyncTransforms();
+        return wall;
     }
 
     private static void ValidateCaptureRequest(NavigationGraph graph, ScenarioReferences scenario)

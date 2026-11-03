@@ -39,6 +39,14 @@ public class WorldBounds : MonoBehaviour
         return position;
     }
 
+    public Vector3 ClampPosition(Vector3 position)
+    {
+        Vector3 center = transform.position;
+        position.x = Mathf.Clamp(position.x, center.x - _width / 2f, center.x + _width / 2f);
+        position.z = Mathf.Clamp(position.z, center.z - _depth / 2f, center.z + _depth / 2f);
+        return position;
+    }
+
     public bool TryGetFreePosition(float height, out Vector3 position)
     {
         // Consulta física local solo al reubicar; no entrega datos al flocking.

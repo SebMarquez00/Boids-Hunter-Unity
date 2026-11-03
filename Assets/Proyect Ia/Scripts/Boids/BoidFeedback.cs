@@ -29,6 +29,10 @@ public sealed class BoidFeedback
         Gizmos.DrawWireSphere(position, viewRadius);
         Gizmos.color = Color.red;
         Gizmos.DrawWireSphere(position, separationRadius);
+#if UNITY_EDITOR
+        UnityEditor.Handles.Label(position + Vector3.forward * viewRadius, "Visión / Alignment / Cohesion");
+        UnityEditor.Handles.Label(position + Vector3.right * separationRadius, "Separation");
+#endif
         if (!Application.isPlaying) return;
         Gizmos.color = Color.yellow;
         Gizmos.DrawLine(position, position + velocity);

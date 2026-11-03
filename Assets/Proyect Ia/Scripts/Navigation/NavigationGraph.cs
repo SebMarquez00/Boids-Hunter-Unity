@@ -64,6 +64,12 @@ public class NavigationGraph : MonoBehaviour
         AddPoint(path, from);
         foreach (int index in nodePath) AddPoint(path, _nodes[index].Position);
         AddPoint(path, destination);
+        // Al replantear entre nodos, evita volver al nodo anterior o sobrepasar
+        // el destino. Solo acorta los conectores extremos si el volumen puede pasar.
+        if (path.Count >= 3 && (from - _nodes[start].Position).sqrMagnitude > 0.000001f
+            && CanTraverse(path[0], path[2], access)) path.RemoveAt(1);
+        if (path.Count >= 3 && (destination - _nodes[goal].Position).sqrMagnitude > 0.000001f
+            && CanTraverse(path[path.Count - 3], path[path.Count - 1], access)) path.RemoveAt(path.Count - 2);
         for (int i = 1; i < path.Count; i++) length += Vector3.Distance(path[i - 1], path[i]);
         return true;
     }

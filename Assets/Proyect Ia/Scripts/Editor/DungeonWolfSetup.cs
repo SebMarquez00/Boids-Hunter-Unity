@@ -17,8 +17,8 @@ public static class DungeonWolfSetup
         new[] { new Vector2(2.5f, 13.5f), new Vector2(13.5f, 13.5f), new Vector2(13.5f, 20.5f), new Vector2(2.5f, 20.5f) },
         new[] { new Vector2(24.5f, 30.5f), new Vector2(35.5f, 30.5f), new Vector2(35.5f, 37.5f), new Vector2(24.5f, 37.5f) },
         new[] { new Vector2(24.5f, 13.5f), new Vector2(35.5f, 13.5f), new Vector2(35.5f, 20.5f), new Vector2(24.5f, 20.5f) },
-        // Entra en sala B para dejar libre por momentos el cruce norte del pasillo.
-        new[] { new Vector2(29.5f, 20.5f), new Vector2(29.5f, 28.5f) }
+        // Se aleja del cruce norte y entra en sala B para dejar ventanas de paso.
+        new[] { new Vector2(29.5f, 20.5f), new Vector2(29.5f, 26.5f) }
     };
 
     [MenuItem("Tools/IA/Entrega 2/Agregar lobos al escenario")]

@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
 
@@ -17,25 +18,60 @@ public class WolfFeedback : MonoBehaviour
     private static readonly int BaseColor = Shader.PropertyToID("_BaseColor");
     private MaterialPropertyBlock _colors;
     private int _playedHowls;
+    private int _shownHowls, _shownAlerts, _shownCaptures;
+    private readonly Queue<string> _pendingActions = new Queue<string>();
+    private string _activeAction = string.Empty;
+    private float _actionUntil;
     private int _shownRevision = -1;
     private int _shownWaypoint = -1;
     private float _viewTimer;
     private string _shownText;
+    private bool _pathsVisible = true;
+    private bool _visionVisible = true;
+    private bool _labelsVisible = true;
+
+    public bool PathsVisible => _pathsVisible;
+    public bool VisionVisible => _visionVisible;
+    public bool LabelsVisible => _labelsVisible;
+
+    public void SetVisibility(bool paths, bool vision, bool labels)
+    {
+        _pathsVisible = paths;
+        _visionVisible = vision;
+        _labelsVisible = labels;
+        ApplyVisibility();
+    }
+
+    private void ApplyVisibility()
+    {
+        bool active = isActiveAndEnabled;
+        if (_pathLine != null) _pathLine.enabled = active && _pathsVisible;
+        if (_viewLine != null) _viewLine.enabled = active && _visionVisible;
+        if (_label != null) _label.enabled = active && _labelsVisible;
+        if (_lastKnownLine != null) _lastKnownLine.enabled = active;
+    }
 
     private void OnEnable()
     {
         if (_wolf == null) _wolf = GetComponent<WolfAgent>();
         if (_colors == null) _colors = new MaterialPropertyBlock();
         _playedHowls = _wolf != null ? _wolf.HowlCount : 0;
+        _shownHowls = _playedHowls;
+        _shownAlerts = _wolf != null ? _wolf.ReceivedAlertCount : 0;
+        _shownCaptures = _wolf != null ? _wolf.CaptureCount : 0;
+        _pendingActions.Clear();
+        _activeAction = string.Empty;
+        _actionUntil = 0f;
         _shownRevision = _shownWaypoint = -1;
         _viewTimer = 0f;
+        ApplyVisibility();
     }
 
     private void LateUpdate()
     {
         if (_wolf == null) return;
         string state = GetStateLabel();
-        string action = GetRecentAction();
+        string action = GetRecentAction(Time.time);
         Color color = GetStateColor();
         UpdateColor(color, action);
         UpdateLabel(state, action);
@@ -58,12 +94,23 @@ public class WolfFeedback : MonoBehaviour
         return _wolf.HasLastKnownPosition ? new Color(0.92f, 0.63f, 0.2f) : new Color(0.38f, 0.53f, 0.68f);
     }
 
-    private string GetRecentAction()
+    private string GetRecentAction(float now)
     {
-        if (_wolf.CaptureCount > 0 && Time.time - _wolf.LastCaptureTime < EventDuration) return "CAPTURA";
-        if (_wolf.HowlCount > 0 && Time.time - _wolf.LastAlertTime < EventDuration) return "AULLIDO";
-        if (_wolf.ReceivedAlertCount > 0 && Time.time - _wolf.LastReceivedAlertTime < EventDuration) return "ALERTA RECIBIDA";
-        return string.Empty;
+        QueueAction(_wolf.CaptureCount, ref _shownCaptures, "CAPTURA");
+        QueueAction(_wolf.HowlCount, ref _shownHowls, "AULLIDO");
+        QueueAction(_wolf.ReceivedAlertCount, ref _shownAlerts, "ALERTA RECIBIDA");
+        if (_activeAction.Length > 0 && now < _actionUntil) return _activeAction;
+        _activeAction = _pendingActions.Count > 0 ? _pendingActions.Dequeue() : string.Empty;
+        _actionUntil = now + EventDuration;
+        return _activeAction;
+    }
+
+    private void QueueAction(int count, ref int shownCount, string action)
+    {
+        bool received = count > shownCount;
+        shownCount = count;
+        // Cada tipo pendiente conserva su turno; una rafaga no acumula avisos atrasados.
+        if (received && !_pendingActions.Contains(action)) _pendingActions.Enqueue(action);
     }
 
     private void UpdateColor(Color stateColor, string action)
@@ -128,12 +175,21 @@ public class WolfFeedback : MonoBehaviour
         _viewTimer -= Time.deltaTime;
         if (_viewTimer > 0f) return;
         _viewTimer = 0.1f;
+        DrawVision(_viewLine, color);
+    }
+
+    // La vista previa utiliza su propia linea: no modifica sensores ni estados.
+    public void RenderVision(LineRenderer target) => DrawVision(target, new Color(0.38f, 0.53f, 0.68f));
+
+    private void DrawVision(LineRenderer target, Color color)
+    {
+        if (target == null || _wolf == null) return;
         NavigationGraph graph = _wolf.Navigation != null && _wolf.Navigation.Follower != null
             ? _wolf.Navigation.Follower.Graph : null;
         Vector3 eye = transform.position;
         if (graph != null) eye.y = graph.SamplingHeight;
-        _viewLine.positionCount = ViewSegments + 3;
-        _viewLine.SetPosition(0, OnFloor(eye, 0.06f));
+        target.positionCount = ViewSegments + 3;
+        target.SetPosition(0, OnFloor(eye, 0.06f));
         for (int i = 0; i <= ViewSegments; i++)
         {
             float angle = -_wolf.ViewAngle * 0.5f + _wolf.ViewAngle * i / ViewSegments;
@@ -141,10 +197,10 @@ public class WolfFeedback : MonoBehaviour
             float distance = _wolf.ViewRadius;
             if (graph != null && Physics.Raycast(eye, direction, out RaycastHit hit, distance,
                 graph.ObstacleMask, QueryTriggerInteraction.Ignore)) distance = Mathf.Max(0f, hit.distance - 0.03f);
-            _viewLine.SetPosition(i + 1, OnFloor(eye + direction * distance, 0.06f));
+            target.SetPosition(i + 1, OnFloor(eye + direction * distance, 0.06f));
         }
-        _viewLine.SetPosition(ViewSegments + 2, OnFloor(eye, 0.06f));
-        SetColor(_viewLine, Color.Lerp(color, new Color(0.45f, 0.48f, 0.5f), 0.6f));
+        target.SetPosition(ViewSegments + 2, OnFloor(eye, 0.06f));
+        SetColor(target, Color.Lerp(color, new Color(0.45f, 0.48f, 0.5f), 0.6f));
     }
 
     private void PlayHowl()
@@ -158,6 +214,7 @@ public class WolfFeedback : MonoBehaviour
     private void SetColor(Renderer target, Color color)
     {
         if (target == null) return;
+        if (_colors == null) _colors = new MaterialPropertyBlock();
         _colors.SetColor(BaseColor, color);
         target.SetPropertyBlock(_colors);
     }
@@ -168,6 +225,7 @@ public class WolfFeedback : MonoBehaviour
         if (_viewLine != null) _viewLine.positionCount = 0;
         if (_lastKnownLine != null) _lastKnownLine.positionCount = 0;
         if (_howlAudio != null) _howlAudio.Stop();
+        ApplyVisibility();
     }
 
     private void OnDrawGizmosSelected()

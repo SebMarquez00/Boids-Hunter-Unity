@@ -37,6 +37,7 @@ public class WolfAgent : MonoBehaviour
     private bool _hasReportedPosition;
     private bool _pendingSightingAlert;
     private Vector3 _reportedPosition;
+    private Vector3 _pendingSightingPosition;
 
     public AgentNavigator Navigation => _navigation;
     public HunterAgent Hunter => _hunter;
@@ -95,6 +96,11 @@ public class WolfAgent : MonoBehaviour
         _stateMachine.RegisterState(WolfStates.Patrol, new WolfPatrolState(this, _stateMachine));
         _stateMachine.RegisterState(WolfStates.Chase, new WolfChaseState(this, _stateMachine));
         _stateMachine.RegisterState(WolfStates.Search, new WolfSearchState(this, _stateMachine));
+        // La FSM resuelve la percepcion antes de actualizar el estado elegido,
+        // para que una transicion no deje un frame sin movimiento.
+        _stateMachine.RegisterGlobalTransition(WolfStates.Patrol, () => !HasLastKnownPosition);
+        _stateMachine.RegisterGlobalTransition(WolfStates.Chase, () => HasVisualContact);
+        _stateMachine.RegisterGlobalTransition(WolfStates.Search, () => HasLastKnownPosition);
         _stateMachine.ChangeState(WolfStates.Patrol);
     }
 
@@ -103,6 +109,7 @@ public class WolfAgent : MonoBehaviour
         if (_stateMachine == null || !isActiveAndEnabled) return;
         UpdateTimers(deltaTime);
         UpdatePerception();
+        TryHowl();
         _stateMachine.Update();
         UpdateStateFeedback();
     }
@@ -130,9 +137,14 @@ public class WolfAgent : MonoBehaviour
             _perception.LoseVisualContact();
             return;
         }
-        if (!HasVisualContact) _pendingSightingAlert = true;
-        _perception.Observe(_hunter.transform.position);
-        TryHowl();
+        Vector3 observedPosition = _hunter.transform.position;
+        if (_pendingSightingAlert || !HasVisualContact || !_hasReportedPosition
+            || PlanarDistanceSquared(_reportedPosition, observedPosition) >= AlertDistance * AlertDistance)
+        {
+            _pendingSightingAlert = true;
+            _pendingSightingPosition = observedPosition;
+        }
+        _perception.Observe(observedPosition);
     }
 
     public bool CanSeeHunter()
@@ -147,9 +159,9 @@ public class WolfAgent : MonoBehaviour
 
     private void TryHowl()
     {
-        if (_howlTimer > 0f || (_hasReportedPosition && !_pendingSightingAlert
-            && PlanarDistanceSquared(_reportedPosition, LastKnownPosition) < AlertDistance * AlertDistance)) return;
-        _reportedPosition = LastKnownPosition;
+        if (_howlTimer > 0f || !_pendingSightingAlert) return;
+        // El aviso pendiente conserva una observacion propia, aunque ya no haya LoS.
+        _reportedPosition = _pendingSightingPosition;
         _hasReportedPosition = true;
         _pendingSightingAlert = false;
         _howlTimer = HowlInterval;
@@ -164,7 +176,11 @@ public class WolfAgent : MonoBehaviour
             || !CanTrackHunter || IsSafePosition(position)) return;
         LastReceivedAlertTime = Time.time;
         ReceivedAlertCount++;
-        if (!HasVisualContact) _perception.Remember(position);
+        if (HasVisualContact && CanSeeHunter()) return;
+        _perception.LoseVisualContact();
+        _perception.Remember(position);
+        // La informacion aceptada reemplaza el aviso propio anterior que aun no se envio.
+        _pendingSightingAlert = false;
     }
 
     public bool TryCaptureHunter()

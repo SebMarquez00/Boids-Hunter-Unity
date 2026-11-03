@@ -25,13 +25,14 @@ public class AgentStatusBadge : MonoBehaviour
             gameObject.SetActive(false);
             return;
         }
-        Vector3 screen = camera.WorldToScreenPoint(_target.position + Vector3.up * 1.2f);
-        visible = visible && _target.gameObject.activeInHierarchy && screen.z > 0f
-            && camera.pixelRect.Contains(screen);
+        Vector3 viewport = camera.WorldToViewportPoint(_target.position + Vector3.up * 1.2f);
+        visible = visible && _target.gameObject.activeInHierarchy && viewport.z > 0f
+            && viewport.x >= 0f && viewport.x <= 1f && viewport.y >= 0f && viewport.y <= 1f;
         gameObject.SetActive(visible);
         if (!visible) return;
-        RectTransformUtility.ScreenPointToLocalPointInRectangle(canvas, screen, null, out Vector2 point);
-        _rect.anchoredPosition = point;
+        // Coordenadas normalizadas: no dependen del panel que Unity este dibujando.
+        Vector2 normalized = camera.rect.min + Vector2.Scale(camera.rect.size, (Vector2)viewport);
+        _rect.anchoredPosition = Vector2.Scale(canvas.rect.size, normalized - _rect.anchorMin);
         Icon.sprite = icon;
         Icon.color = color;
         Caption.text = caption;

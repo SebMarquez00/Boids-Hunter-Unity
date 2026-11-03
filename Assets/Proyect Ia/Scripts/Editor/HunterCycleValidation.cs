@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Reflection;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
@@ -351,9 +352,8 @@ public static class HunterCycleValidation
             GameObject created = Create("Boid temporal", position);
             created.AddComponent<SphereCollider>().radius = 0.2f;
             BoidAgent boid = created.AddComponent<BoidAgent>();
-            // Mismo arranque de fixtures que BlockOneValidation; no se fuerza ninguna FSM.
-            boid.SendMessage("Awake");
-            boid.SendMessage("OnEnable");
+            // ResetAgent inicializa y restablece el Boid sin despachar mensajes de Unity en Edit Mode.
+            InvokeFixtureMethod(boid, "ResetAgent");
             if (!alive) boid.TakeDamage(float.MaxValue);
             return boid;
         }
@@ -387,5 +387,13 @@ public static class HunterCycleValidation
     {
         _checks++;
         if (!condition) throw new InvalidOperationException(message);
+    }
+
+    private static void InvokeFixtureMethod(Component target, string methodName)
+    {
+        MethodInfo method = target.GetType().GetMethod(methodName, BindingFlags.Instance | BindingFlags.NonPublic);
+        if (method == null)
+            throw new MissingMethodException("Fixture: no existe " + target.GetType().Name + "." + methodName + ".");
+        method.Invoke(target, null);
     }
 }

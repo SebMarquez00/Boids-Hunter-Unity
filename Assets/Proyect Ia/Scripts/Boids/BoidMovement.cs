@@ -28,12 +28,14 @@ public sealed class BoidMovement
         if (bounds != null) _transform.position = bounds.OutOfBounds(_transform.position);
     }
 
-    public void StayBeside(Vector3 targetPosition, float stopDistance)
+    public void StayBeside(Vector3 targetPosition, float stopDistance, WorldBounds bounds = null)
     {
         targetPosition.y = _transform.position.y;
         Vector3 offset = _transform.position - targetPosition;
         if (offset.sqrMagnitude < 0.001f) offset = -_transform.forward;
-        _transform.position = targetPosition + offset.normalized * stopDistance;
+        Vector3 position = targetPosition + offset.normalized * stopDistance;
+        if (bounds == null) bounds = WorldBounds.Instance;
+        _transform.position = bounds != null ? bounds.ClampPosition(position) : position;
         Stop();
     }
 

@@ -11,6 +11,27 @@ public static class NavigationValidation
     private const float Tolerance = 0.002f;
     private static int _checks;
 
+    [MenuItem("Tools/IA/Entrega 2/Validar continuidad de movimiento")]
+    public static void RunMotionRegressions()
+    {
+        Require(!EditorApplication.isPlayingOrWillChangePlaymode, "Esta validacion requiere Edit Mode.");
+        Scene original = SceneManager.GetActiveScene();
+        Require(original.path == DungeonMapBuilder.ScenePath, "Abri DungeonSimulation antes de validar.");
+        NavigationGraph graph = FindSingle<NavigationGraph>(original);
+        Scene temporary = default;
+        try
+        {
+            temporary = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Additive);
+            SceneManager.SetActiveScene(temporary);
+            ValidateMotionContinuity(graph);
+        }
+        finally
+        {
+            if (original.IsValid() && original.isLoaded) SceneManager.SetActiveScene(original);
+            if (temporary.IsValid()) EditorSceneManager.CloseScene(temporary, true);
+        }
+    }
+
     [MenuItem("Tools/IA/Entrega 2/Validar navegacion")]
     public static void Run()
     {
@@ -34,6 +55,7 @@ public static class NavigationValidation
             ValidateConnectionsToGraph(graph, scenario);
             ValidateSafeCrossing(graph);
             ValidateFollower(graph, scenario);
+            ValidateMotionContinuity(graph);
             Debug.Log($"Navegacion: {_checks} comprobaciones correctas; grafo, A*, refugios y seguidor validados.");
         }
         finally
@@ -373,8 +395,10 @@ public static class NavigationValidation
             Require(Vector3.Distance(from, blocked) < Vector3.Distance(from, reachable), "El fixture necesita un nodo bloqueado mas cercano.");
             Require(!graph.CanTraverse(from, blocked, NavigationAccess.Hunter)
                 && graph.CanTraverse(from, reachable, NavigationAccess.Hunter), "El volumen debe bloquear el atajo por la esquina.");
-            Require(graph.TryFindPath(from, goal, NavigationAccess.Hunter, out List<Vector3> path, out _)
-                && ContainsPoint(path, reachable) && !ContainsPoint(path, blocked), "Debe conectar con el nodo accesible, no con el mas cercano tras una pared.");
+            Require(graph.FindClosestNode(from, NavigationAccess.Hunter) == 1
+                && graph.TryFindPath(from, goal, NavigationAccess.Hunter, out List<Vector3> path, out _)
+                && !ContainsPoint(path, blocked), "Debe conectar con el nodo accesible, no con el mas cercano tras una pared.");
+            ValidateRoute(graph, from, goal, NavigationAccess.Hunter);
             RequireNoRoute(graph, DungeonLayout.ToWorld(5.1f, 17.5f), goal, NavigationAccess.Hunter);
         }
         finally { Object.DestroyImmediate(fixture); }
@@ -460,7 +484,10 @@ public static class NavigationValidation
                     && PhysicalSegmentClear(graph, before, marker.transform.position), "Un paso del seguidor excede velocidad o invade un muro.");
             }
             Require(follower.HasArrived && Near(marker.transform.position, goal) && !follower.IsMoving
-                && follower.WaypointIndex == follower.Path.Count && follower.Velocity == Vector3.zero, "El seguidor no finalizo correctamente.");
+                && follower.WaypointIndex == follower.Path.Count
+                && Near(follower.Velocity, (marker.transform.position - before) / .02f), "El seguidor no finalizo correctamente.");
+            follower.Tick(.02f);
+            Require(follower.Velocity == Vector3.zero, "Sin desplazamiento posterior a la llegada la velocidad debe volver a cero.");
 
             marker.transform.position = start;
             Require(follower.SetDestination(goal), "No puede repetir una ruta terminada.");
@@ -502,6 +529,91 @@ public static class NavigationValidation
             Object.DestroyImmediate(marker);
             Physics.SyncTransforms();
         }
+    }
+
+    private static void ValidateMotionContinuity(NavigationGraph graph)
+    {
+        GameObject actor = new GameObject("Validacion continuidad temporal");
+        try
+        {
+            PathFollower follower = actor.AddComponent<PathFollower>();
+            follower.Graph = graph;
+            follower.Access = NavigationAccess.Wolf;
+            AgentNavigator navigator = actor.AddComponent<AgentNavigator>();
+            navigator.Follower = follower;
+            Vector3 start = DungeonLayout.ToWorld(51.5f, 25.5f, graph.SamplingHeight);
+            Vector3 goal = start + Vector3.right * 4f;
+            actor.transform.position = start;
+            navigator.NavigateTo(goal, 2.8f, 0f);
+            int initialCalculations = navigator.CalculationCount;
+            float minimumAdvance = float.PositiveInfinity;
+            bool clear = true;
+            // A medio tramo cambia el objetivo visible. Al recalcular, el nodo mas
+            // cercano queda detras del agente; esa conexion no debe hacerlo retroceder.
+            for (int frame = 0; frame < 42; frame++)
+            {
+                Vector3 before = actor.transform.position;
+                navigator.NavigateTo(goal + (frame >= 10 ? Vector3.right * .4f : Vector3.zero), 2.8f, 1f / 60f);
+                Vector3 after = actor.transform.position;
+                minimumAdvance = Mathf.Min(minimumAdvance, after.x - before.x);
+                clear &= graph.CanTraverse(before, after, NavigationAccess.Wolf);
+            }
+            bool forwardReplan = navigator.CalculationCount > initialCalculations
+                && minimumAdvance > 0f && clear;
+
+            navigator.Stop();
+            actor.transform.position = start;
+            actor.transform.rotation = Quaternion.LookRotation(Vector3.forward);
+            Vector3 shortGoal = start + Vector3.right * .125f;
+            navigator.NavigateTo(shortGoal, 2f, .0625f);
+            Vector3 arrivalVelocity = navigator.Velocity;
+            float arrivalTurn = Quaternion.Angle(Quaternion.identity, actor.transform.rotation);
+            bool arrivalReportsMotion = navigator.HasArrived && arrivalVelocity.x > 1.99f && arrivalTurn > 0f;
+            int beforeNextGoal = navigator.CalculationCount;
+            navigator.NavigateTo(start + Vector3.right, 2.5f, .02f);
+            float nextGoalAdvance = actor.transform.position.x - shortGoal.x;
+            bool noArrivalPause = navigator.CalculationCount == beforeNextGoal + 1 && nextGoalAdvance > 0f;
+
+            navigator.Stop();
+            actor.transform.position = start;
+            Vector3 betweenNodes = start + Vector3.right * 1.6f;
+            follower.Speed = 2.5f;
+            bool endConnector = follower.SetDestination(betweenNodes);
+            for (int frame = 0; frame < 200 && !follower.HasArrived; frame++)
+            {
+                Vector3 before = actor.transform.position;
+                follower.Tick(.02f);
+                endConnector &= actor.transform.position.x >= before.x - Tolerance
+                    && actor.transform.position.x <= betweenNodes.x + Tolerance;
+            }
+            endConnector &= follower.HasArrived;
+
+            Debug.Log($"Continuidad: recalculo hacia delante={forwardReplan} (avance minimo={minimumAdvance:F4}); "
+                + $"nuevo destino sin pausa={noArrivalPause} (avance={nextGoalAdvance:F4}); "
+                + $"velocidad/giro al llegar={arrivalReportsMotion} (vx={arrivalVelocity.x:F3}, giro={arrivalTurn:F2}); "
+                + $"conector final sin sobrepaso={endConnector}.");
+            ValidateEndpointCorners(graph);
+            Require(forwardReplan && noArrivalPause && arrivalReportsMotion && endConnector,
+                "Fallo de continuidad: revisar los cuatro resultados del registro anterior.");
+        }
+        finally { Object.DestroyImmediate(actor); }
+    }
+
+    private static void ValidateEndpointCorners(NavigationGraph graph)
+    {
+        Vector3 from = DungeonLayout.ToWorld(4.5f, 19.1f, graph.SamplingHeight);
+        Vector3 corner = DungeonLayout.ToWorld(4.5f, 19.5f, graph.SamplingHeight);
+        Vector3 to = DungeonLayout.ToWorld(5.5f, 19.5f, graph.SamplingHeight);
+        Require(!graph.CanTraverse(from, to, NavigationAccess.Wolf)
+            && graph.CanTraverse(from, corner, NavigationAccess.Wolf)
+            && graph.CanTraverse(corner, to, NavigationAccess.Wolf),
+            "La fixture debe requerir un conector para rodear la esquina de la columna.");
+        Require(graph.TryFindPath(from, to, NavigationAccess.Wolf, out List<Vector3> forward, out _)
+            && ContainsPoint(forward, corner), "El conector inicial no puede eliminarse si corta una pared.");
+        Require(graph.TryFindPath(to, from, NavigationAccess.Wolf, out List<Vector3> reverse, out _)
+            && ContainsPoint(reverse, corner), "El conector final no puede eliminarse si corta una pared.");
+        ValidateRoute(graph, from, to, NavigationAccess.Wolf);
+        ValidateRoute(graph, to, from, NavigationAccess.Wolf);
     }
 
     private static void ConfigureGraph(NavigationGraph graph, ScenarioReferences scenario, NavigationGraph source, float connectionDistance)

@@ -72,7 +72,7 @@ public class PathFollower : MonoBehaviour
         Vector3 previousPosition = transform.position;
         float remainingDistance = Mathf.Max(0f, _speed) * deltaTime;
         FollowWaypoints(remainingDistance);
-        if (IsMoving) Velocity = (transform.position - previousPosition) / deltaTime;
+        if (!IsBlocked) Velocity = (transform.position - previousPosition) / deltaTime;
     }
 
     private void FollowWaypoints(float remainingDistance)

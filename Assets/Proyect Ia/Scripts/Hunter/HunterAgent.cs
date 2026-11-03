@@ -77,6 +77,7 @@ public class HunterAgent : Agent
     private StateMachine _stateMachine;
     private HunterPerception _perception;
     private HunterMovement _movement;
+    private HunterInterestPlacement _interestPlacement;
     private HunterCombat _combat;
     private HunterLife _life;
 
@@ -167,6 +168,7 @@ public class HunterAgent : Agent
         DeltaTime = 0f;
         _perception = new HunterPerception();
         _movement = new HunterMovement(transform);
+        _interestPlacement = new HunterInterestPlacement(transform);
         _combat = new HunterCombat(this);
         _life = new HunterLife(transform);
         InitializeStateMachine();
@@ -232,23 +234,12 @@ public class HunterAgent : Agent
 
     public void MoveTowards(Vector3 targetPosition)
     {
-        if (UsesNavigation)
-        {
-            NavigateTo(targetPosition);
-            return;
-        }
-        _velocity = _movement.MoveTowards(targetPosition, _speed, DeltaTime);
+        NavigateTo(targetPosition);
     }
 
     public void NavigateTo(Vector3 targetPosition)
     {
-        if (!UsesNavigation)
-        {
-            MoveTowards(targetPosition);
-            return;
-        }
-        _navigation.NavigateTo(targetPosition, _speed, DeltaTime);
-        _velocity = _navigation.Velocity;
+        _velocity = _movement.NavigateTo(targetPosition, _speed, DeltaTime, UsesNavigation ? _navigation : null);
     }
 
     public void ApproachTarget(BoidAgent target)
@@ -276,23 +267,8 @@ public class HunterAgent : Agent
 
     private void MoveToVisibleTarget(Vector3 preferredPosition, Vector3 currentTargetPosition)
     {
-        if (!UsesNavigation)
-        {
-            MoveTowards(preferredPosition);
-            return;
-        }
-        NavigationGraph graph = _navigation.Follower != null ? _navigation.Follower.Graph : null;
-        if (graph != null && graph.CanTraverse(transform.position, preferredPosition, NavigationAccess.Hunter))
-            MoveDirectly(preferredPosition);
-        else if (graph != null && graph.CanTraverse(transform.position, currentTargetPosition, NavigationAccess.Hunter))
-            MoveDirectly(currentTargetPosition);
-        else NavigateTo(currentTargetPosition);
-    }
-
-    private void MoveDirectly(Vector3 targetPosition)
-    {
-        _navigation.Stop();
-        _velocity = _movement.MoveTowards(targetPosition, _speed, DeltaTime, _navigation.TurnSpeed);
+        _velocity = _movement.MoveToVisibleTarget(preferredPosition, currentTargetPosition,
+            _speed, DeltaTime, UsesNavigation ? _navigation : null);
     }
 
     public float DistanceTo(Vector3 position)
@@ -355,21 +331,16 @@ public class HunterAgent : Agent
 
     public bool CanPlaceInterestObject()
     {
-        if (!CanUseCombat) return false;
-        if (UsesNavigation && !IsInHuntingGround) return false;
-        if (_interestPrefab == null || _spawnTimer < Mathf.Max(0.1f, _spawnInterval)) return false;
-        if (InterestObject.ActiveCount >= MaxInterestObjects) return false;
-
-        return !_perception.HasNearbyInterest(transform.position, InterestSpacing);
+        return CanUseCombat && (!UsesNavigation || IsInHuntingGround)
+            && _interestPlacement.CanPlace(_interestPrefab, _spawnTimer, _spawnInterval,
+                MaxInterestObjects, _perception, InterestSpacing);
     }
 
     public void PlaceInterestObject()
     {
         if (!CanPlaceInterestObject()) return;
 
-        Vector3 position = transform.position;
-        position.y = _interestHeight;
-        Instantiate(_interestPrefab, position, Quaternion.identity, _interestParent);
+        _interestPlacement.Place(_interestPrefab, _interestParent, _interestHeight);
         _spawnTimer = 0f;
     }
 

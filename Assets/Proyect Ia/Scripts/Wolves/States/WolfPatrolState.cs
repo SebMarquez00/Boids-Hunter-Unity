@@ -12,23 +12,7 @@ public class WolfPatrolState : State
 
     public override void Enter() => _agent.Stop();
 
-    public override void Update()
-    {
-        if (TryChangeState()) return;
-        FollowCircuit();
-    }
-
-    private bool TryChangeState()
-    {
-        if (_agent.HasVisualContact)
-        {
-            _stateMachine.ChangeState(WolfStates.Chase);
-            return true;
-        }
-        if (!_agent.HasLastKnownPosition) return false;
-        _stateMachine.ChangeState(WolfStates.Search);
-        return true;
-    }
+    public override void Update() => FollowCircuit();
 
     private void FollowCircuit()
     {
